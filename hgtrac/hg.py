@@ -1,0 +1,559 @@
+# -*- coding: iso8859-1 -*-
+#
+# Copyright (C) 2005 Edgewall Software
+# Copyright (C) 2005 Christian Boos <cboos@neuf.fr>
+# All rights reserved.
+#
+# This software may be used and distributed according to the terms
+# of the GNU General Public License, incorporated herein by reference.
+#
+# Author: Christian Boos <cboos@neuf.fr>
+
+from __future__ import generators
+from StringIO import StringIO
+
+import os.path
+import time
+import posixpath
+import re
+
+from trac.util import TracError, shorten_line, escape
+from trac.versioncontrol import Changeset, Node, Repository, IScmBackend
+from trac.versioncontrol.web_ui import ChangesetModule, BrowserModule
+from trac.wiki import IWikiSyntaxProvider
+from trac.core import *
+
+try:
+    from mercurial import hg
+    from mercurial.ui import ui
+    from mercurial.repo import RepoError
+    from mercurial.node import hex, short, nullid
+    from mercurial.util import pathto
+    from mercurial.commands import walkchangerevs
+    has_mercurial = True
+except ImportError:
+    has_mercurial = False
+    ui = object
+    pass
+
+
+### Components
+
+class MercurialBackend(Component):
+
+    implements(IScmBackend)
+
+    def identifiers(self):
+        """Support the `hg:` and `mercurial:` schemes"""
+        global has_mercurial
+        if has_mercurial:
+            yield ("mercurial", 8)
+            yield ("hg", 8)
+
+    def repository(self, scheme, args, authname):
+        """Return a `MercurialRepository`"""
+        return MercurialRepository(args, self.log)
+
+
+
+class MercurialBrowserModule(BrowserModule):
+
+    # IRequestHandler methods
+
+    def process_request(self, req):
+        # before:
+        branch = req.args.get('branch')
+        tag = req.args.get('tag')
+        if branch:
+            req.args['rev'] = branch
+        elif tag:
+            req.args['rev'] = tag
+        return BrowserModule.process_request(self, req)
+
+    def _render_file(self, req, repos, node, rev=None):
+        BrowserModule._render_file(self, req, repos, node, rev)
+        # after:
+        self._add_tags_and_branches(req, repos, rev)
+
+    def _render_directory(self, req, repos, node, rev=None):
+        BrowserModule._render_directory(self, req, repos, node, rev)
+        # after:
+        self._add_tags_and_branches(req, repos, rev)
+
+    # TODO: consider pushing that in BrowserModule.process_request and
+    #       extend the API with Repository.get_tags and Repository.get_branches 
+    def _add_tags_and_branches(self, req, repos, rev):
+        tags = []
+        for t, rev in repos.get_tags():
+            tags.append({'name': escape(t), 'rev': rev})
+        branches = []
+        for b, rev in repos.get_branches():
+            branches.append({'name': escape(b), 'rev': rev})
+        req.hdf['browser.tags'] = tags
+        req.hdf['browser.branches'] = branches
+            
+
+class MercurialChangesetModule(ChangesetModule):
+
+    # IWikiSyntaxProvider methods
+    
+    def get_wiki_syntax(self):
+        # shorthand form only accept hex digits (no [tip], use tag:tip for that)
+        yield (r"!?\[[a-fA-F\d]+\]",
+               lambda x, y, z: self._format_link(x, 'changeset', y[1:-1], y))
+
+    def get_link_resolvers(self):
+        yield ('cset', self._format_link)
+        yield ('chgset', self._format_link)
+        yield ('branch', self._format_link)    # go to the corresponding head
+        yield ('tag', self._format_link)
+        yield ('changeset', self._format_link)
+
+    def _format_link(self, formatter, ns, rev, label):
+        if ns == 'branch':
+            repos = self.env.get_repository()
+            for b, head in repos.get_branches():
+                if b == rev:
+                    rev = head
+                    break
+        return self.format_changeset(rev, label)
+
+    def format_changeset(self, rev, label):
+        repos = self.env.get_repository()
+        try:
+            chgset = repos.get_changeset(rev)
+            return '<a class="changeset" title="%s" href="%s">%s</a>' \
+                   % (escape(shorten_line(chgset.message)),
+                      self.env.href.changeset(rev), label)
+        except TracError, e:
+            return '<a class="missing changeset" title="%s" href="%s"' \
+                   ' rel="nofollow">%s</a>' \
+                   % (str(e), self.env.href.changeset(rev), label)
+
+    # IRequestHandler methods
+
+    def match_request(self, req):
+        # accept any form of revision, including tag names
+        match = re.match(r'/changeset/([\w\-+./:]+)$', req.path_info)
+        if match:
+            req.args['rev'] = match.group(1)
+            return 1
+
+    def _render_html(self, req, repos, chgset, diff_options):
+        ChangesetModule._render_html(self, req, repos, chgset, diff_options)
+        # plus:
+        properties = []        
+        for name, value, htmlclass in chgset.properties():
+            if htmlclass == 'changeset':
+                value = ' '.join([self.format_changeset(v, v) for v in \
+                                  value.split()])
+            properties.append({'name': name,
+                               'value': value,
+                               'htmlclass': htmlclass})
+        req.hdf['changeset.properties'] = properties
+
+
+### Helpers (FIXME: apparently, this is not needed)
+        
+class trac_ui(ui):
+    def __init__(self):
+        ui.__init__(self, interactive=False)
+        self.out = StringIO()
+        self.err = StringIO()
+        
+    def write(self, *args):
+        for a in args:
+            self.out.write(str(a))
+
+    def write_err(self, str):
+        for a in args:
+            self.err.write(str(a))
+
+    def read_out(self):
+        out = self.out.getvalue()
+        self.out = StringIO()
+        return out
+
+    def read_err(self):
+        err = self.err.getvalue()
+        self.err = StringIO()
+        return err
+
+    def readline(self):
+        raise TracError('*** Mercurial ui.readline called ***')
+
+
+
+### Version Control API
+    
+class MercurialRepository(Repository):
+    """Repository implementation based on the mercurial API.
+
+    This wraps a hg.repository object.
+    The revision navigation follows the branches, and defaults
+    to the first parent/child in case there are many.
+    The eventual other parents/children are listed as
+    additional changeset properties.
+    """
+
+    def __init__(self, path, log): ### FIXME: provide options dictionary?
+        self.ui = trac_ui()
+        self.repo = hg.repository(ui=self.ui, path=path)
+        self.path = self.repo.root
+        if self.path is None:
+            raise TracError(path + ' does not appear to ' \
+                            'contain a Mercurial repository.')
+        Repository.__init__(self, 'hg:%s' % path, None, log)
+
+#   def has_node(self, path, rev):
+
+    def _node(self, rev):
+        try:
+            if rev:
+                m = re.match(r"(\d+):", rev)
+                if m:
+                    rev = m.group(1)
+                return self.repo.lookup(rev)
+            return self.repo.changelog.tip()
+        except RepoError, e:
+            raise TracError(str(e))
+
+    def _display(self, n):
+        return '%s:%s' % (self.repo.changelog.rev(n), short(n))
+        # return short(n) ### FIXME: make that configurable
+
+    def normalize_path(self, path):
+        """Remove leading "/", except for the root"""
+        return path and path.strip('/') or ''
+
+    def normalize_rev(self, rev):
+        """Return the changelog node for the specified rev"""
+        return self._display(self._node(rev))
+
+    def short_rev(self, rev):
+        """Return the revision number for the specified rev"""
+        return self.repo.changelog.rev(self._node(rev))
+
+    def get_changeset(self, rev):
+        return MercurialChangeset(self, self._node(rev))
+
+    def get_changesets(self, start, stop):
+        """Follow each head and parents in order to get all changesets"""
+        log = self.repo.changelog
+        seen = {nullid: 1}
+        seeds = log.heads()
+        while seeds:
+            cn = seeds[0]
+            del seeds[0]
+            time = log.read(cn)[2][0]
+            rev = log.rev(cn)
+            if time < start:
+                continue # assume no parent is younger and use next seed
+            elif time < stop:
+                yield MercurialChangeset(self, cn)
+            for p in log.parents(cn):
+                if p not in seen:
+                    seen[p] = 1
+                    seeds.append(p)
+
+    def get_node(self, path, rev=None):
+        return MercurialNode(self, self.normalize_path(path), self._node(rev))
+
+    def get_tags(self):
+        for tag, n in self.repo.tagslist():
+            yield (tag, self._display(n))
+
+    def get_branches(self):
+        heads = self.repo.changelog.heads()
+        brinfo = self.repo.branchlookup(heads)
+        for head in heads:
+            rev = self._display(head)
+            if head in brinfo:
+                branch = ' '.join(brinfo[head])
+            else:
+                branch = rev
+            yield (branch, rev)
+            
+    def get_oldest_rev(self):
+        return self._display(self.repo.changelog.node(0))
+
+    def get_youngest_rev(self):
+        return self._display(self.repo.changelog.tip())
+
+    def previous_rev(self, rev):
+        n = self._node(rev)
+        log = self.repo.changelog
+        parents = [self._display(p) for p in log.parents(n) if p != nullid]
+        parents.sort()
+        return parents and parents[0] or None
+    
+    def next_rev(self, rev):
+        n = self._node(rev)
+        log = self.repo.changelog
+        children = [self._display(c) for c in log.children(n)]
+        children.sort()
+        return children and children[0] or None
+    
+    def rev_older_than(self, rev1, rev2):
+        log = self.repo.changelog
+        return log.rev(self._node(rev1)) < log.rev(self._node(rev2))
+
+#    def get_path_history(self, path, rev=None, limit=None):
+#         path = self.normalize_path(path)
+#         rev = self.normalize_rev(rev)
+#         expect_deletion = False
+#         while rev:
+#             if self.has_node(path, rev):
+#                 if expect_deletion:
+#                     # it was missing, now it's there again:
+#                     #  rev+1 must be a delete
+#                     yield path, rev+1, Changeset.DELETE
+#                 newer = None # 'newer' is the previously seen history tuple
+#                 older = None # 'older' is the currently examined history tuple
+#                 for p, r in _get_history(path, 0, rev, limit):
+#                     older = (p, r, Changeset.ADD)
+#                     rev = self.previous_rev(r)
+#                     if newer:
+#                         if older[0] == path:
+#                             # still on the path: 'newer' was an edit
+#                             yield newer[0], newer[1], Changeset.EDIT
+#                         else:
+#                             # the path changed: 'newer' was a copy
+#                             rev = self.previous_rev(newer[1])
+#                             # restart before the copy op
+#                             yield newer[0], newer[1], Changeset.COPY
+#                             older = (older[0], older[1], 'unknown')
+#                             break
+#                     newer = older
+#                 if older:
+#                     # either a real ADD or the source of a COPY
+#                     yield older
+#             else:
+#                 expect_deletion = True
+#                 rev = self.previous_rev(rev)
+
+
+class MercurialNode(Node):
+    """A path in the repository, at a given revision.
+
+    It encapsulates the repository manifest for the given revision.
+
+    As directories are not first-class citizens in Mercurial,
+    retrieving revision information for directory is much slower than
+    for files.
+    """
+
+    def __init__(self, repos, path, n, manifest=None, mflags=None):
+        self.repos = repos
+        self.n = n
+        log = repos.repo.changelog
+        
+        if not manifest:
+            manifest_n = log.read(n)[0] # 0: manifest node
+            manifest = repos.repo.manifest.read(manifest_n)
+            mflags = repos.repo.manifest.readflags(manifest_n)
+        self.manifest = manifest
+        self.mflags = mflags
+        
+        kind = None
+        if path in manifest: # then it's a file
+            kind = Node.FILE
+            file_n = manifest[path]
+            log_rev = repos.repo.file(path).linkrev(file_n)
+            node = log.node(log_rev)
+        else: # it will be a directory if there are matching entries
+            dir = path and path+'/' or ''
+            entries = {}
+            newest = -1
+            for file in manifest.keys():
+                if file.startswith(dir):
+                    entry = file[len(dir):].split('/', 1)[0]
+                    entries[entry] = 1
+                    if path: # small optimization: we skip this for root node
+                        file_n = manifest[file]
+                        log_rev = repos.repo.file(file).linkrev(file_n)
+                        newest = max(log_rev, newest)
+            if entries:
+                kind = Node.DIRECTORY
+                self.entries = entries.keys()
+                if newest >= 0:
+                    node = log.node(newest)
+                else: # ... as it's the youngest anyway
+                    node = log.tip()
+        if not kind:
+            raise TracError("No node at %s in revision %s" \
+                            % (path, repos._display(n)))
+        self.time = log.read(node)[2][0]
+        rev = repos._display(node)
+        Node.__init__(self, path, rev, kind)
+
+    def get_content(self):
+        if self.isdir:
+            return None
+        return self # something that can be `read()` ...
+
+    def read(self, size=None):
+        if self.isdir:
+            return TracError("Can't read from directory %s" % self.path)
+        file_n = self.manifest[self.path]
+        file = self.repos.repo.file(self.path)
+        data = file.read(file_n)
+        return size and data[:size] or data
+
+    def get_entries(self):
+        if self.isfile:
+            return
+        for entry in self.entries:
+            if self.path:
+                entry = posixpath.join(self.path, entry)
+            yield MercurialNode(self.repos, entry, self.n,
+                                self.manifest, self.mflags)
+
+    def get_history(self, limit=None):
+        newer = None # 'newer' is the previously seen history tuple
+        older = None # 'older' is the currently examined history tuple
+        log = self.repos.repo.changelog
+        # directory history
+        if self.isdir:
+            if not self.path: # special case for the root
+                for r in xrange(log.rev(self.n), -1, -1):
+                    yield ('', self.repos._display(log.node(r)),
+                           r and Changeset.EDIT or Changeset.ADD)
+                return
+            wcr = walkchangerevs(self.repos.ui, self.repos.repo, None,
+                                 ['path:%s' % self.path],
+                                 {'rev': ['%s:0' % hex(self.n)]})
+            matches = {}
+            for st, rev, fns in wcr[0]:
+                if st == 'window':
+                    matches.clear()
+                elif st == 'add':
+                    matches[rev] = 1
+                elif st == 'iter':
+                    if matches[rev]:
+                        yield (self.path, self.repos._display(log.node(rev)),
+                               Changeset.EDIT)
+            return
+        # file history
+        file_n = self.manifest[self.path]
+        file = self.repos.repo.file(self.path)
+        # FIXME: COPY currently unsupported        
+        for file_rev in xrange(file.rev(file_n), -1, -1):
+            rev = log.node(file.linkrev(file.node(file_rev)))
+            older = (self.path, self.repos._display(rev), Changeset.ADD)
+            if newer:
+                change = newer[0] == older[0] and Changeset.EDIT or \
+                         Changeset.COPY
+                newer = (newer[0], newer[1], change)
+                yield newer
+            newer = older
+        if newer:
+            yield newer
+
+    def get_properties(self):
+        if self.isfile:
+            # WARNING: currently a bool, I suspect this will change...
+            if self.mflags[self.path]: 
+                return {'exe': '*'}
+        return {}             # FIXME++: implement pset/pget/plist etc. in hg
+
+    def get_content_length(self):
+        if self.isdir:
+            return None
+        return len(self.read())
+
+    def get_content_type(self):
+        if self.isdir:
+            return None
+        return ''
+
+    def get_last_modified(self):
+        return self.time
+
+
+class MercurialChangeset(Changeset):
+    """A changeset in the repository.
+
+    This wraps the corresponding information from the changelog.
+    The files changes are obtained by comparing the current manifest
+    to the parent manifest(s).
+    """
+    
+    def __init__(self, repos, n):
+        log = repos.repo.changelog
+        manifest, user, (time, timezone), files, desc = log.read(n)
+        Changeset.__init__(self, repos._display(n), desc, user, time)
+        self.repos = repos
+        self.n = n
+        self.manifest_n = manifest
+        self.files = files
+        self.parents = [repos._display(p) for p in log.parents(n) \
+                        if p != nullid]
+        self.children = [repos._display(c) for c in log.children(n)]
+        self.tags = [t for t in repos.repo.nodetags(n)]
+
+    def properties(self):
+        if len(self.parents) > 1:
+            yield ('Parents', ' '.join(self.parents), 'changeset')
+        if len(self.children) > 1:
+            yield ('Children', ' '.join(self.children), 'changeset')
+        if len(self.tags):
+            yield ('Tags', ' '.join(self.tags), 'changeset')
+
+    def get_changes(self):
+        repo = self.repos.repo
+        log = repo.changelog
+        parents = log.parents(self.n)
+        manifest = repo.manifest.read(self.manifest_n)
+        manifest1 = None
+        if parents:
+            man_node1 = log.read(parents[0])[0]
+            manifest1 = repo.manifest.read(man_node1)
+            manifest2 = None
+            if len(parents) > 1:
+                man_node2 = log.read(parents[1])[0]
+                manifest2 = repo.manifest.read(man_node2)
+
+        deletions = {}
+        def detect_delete(pmanifest, p):
+            for file in pmanifest.keys():
+                if file not in manifest:
+                    deletions[file] = p
+        if manifest1:
+            detect_delete(manifest1, self.parents[0])
+        if manifest2:
+            detect_delete(manifest2, self.parents[1])
+
+        changes = []
+        for file in self.files: # edited files
+            action = None
+            # TODO: find a way to detect conflicts and show how they were solved
+            if manifest1 and file in manifest1:
+                action = Changeset.EDIT                
+                changes.append((file, Node.FILE, action, file, self.parents[0]))
+            if manifest2 and file in manifest2:
+                action = Changeset.EDIT                
+                changes.append((file, Node.FILE, action, file, self.parents[1]))
+            if not action:
+                rename_info = repo.file(file).renamed(manifest[file])
+                if rename_info:
+                    base_path = rename_info[0]
+                    linkedrev = repo.file(base_path).linkrev(rename_info[1])
+                    base_rev = self.repos._display(log.node(linkedrev))
+                    if base_path in deletions:
+                        action = Changeset.MOVE
+                        del deletions[base_path]
+                    else:
+                        action = Changeset.COPY
+                else:
+                    action = Changeset.ADD
+                    base_path = ''
+                    base_rev = None
+                changes.append((file, Node.FILE, action, base_path, base_rev))
+
+        for file, p in deletions.items():
+            changes.append((file, Node.FILE, Changeset.DELETE, file, p))
+        changes.sort()
+        for change in changes:
+            yield change
+
