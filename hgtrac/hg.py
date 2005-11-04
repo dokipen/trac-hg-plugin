@@ -17,7 +17,7 @@ import time
 import posixpath
 import re
 
-from trac.util import TracError, shorten_line, escape
+from trac.util import TracError, shorten_line, escape, FALSE
 from trac.versioncontrol import Changeset, Node, Repository, IScmBackend
 from trac.versioncontrol.web_ui import ChangesetModule, BrowserModule
 from trac.wiki import IWikiSyntaxProvider
@@ -52,7 +52,10 @@ class MercurialBackend(Component):
 
     def repository(self, scheme, args, authname):
         """Return a `MercurialRepository`"""
-        return MercurialRepository(args, self.log)
+        options = {}
+        for key, val in self.config.options(scheme):
+            options[key] = val
+        return MercurialRepository(args, self.log, options)
 
 
 
@@ -196,10 +199,14 @@ class MercurialRepository(Repository):
     additional changeset properties.
     """
 
-    def __init__(self, path, log): ### FIXME: provide options dictionary?
+    def __init__(self, path, log, options):
         self.ui = trac_ui()
         self.repo = hg.repository(ui=self.ui, path=path)
         self.path = self.repo.root
+        self._show_rev = 'show_rev' in options \
+                         and options['show_rev'] not in FALSE # defaults to True
+        self._node_fmt = 'node_format' in options \
+                         and options['node_format']    # will default to 'short'
         if self.path is None:
             raise TracError(path + ' does not appear to ' \
                             'contain a Mercurial repository.')
@@ -219,8 +226,11 @@ class MercurialRepository(Repository):
             raise TracError(str(e))
 
     def _display(self, n):
-        return '%s:%s' % (self.repo.changelog.rev(n), short(n))
-        # return short(n) ### FIXME: make that configurable
+        nodestr = self._node_fmt == "hex" and hex(n) or short(n)
+        if self._show_rev:
+            return '%s:%s' % (self.repo.changelog.rev(n), nodestr)
+        else:
+            return nodestr
 
     def normalize_path(self, path):
         """Remove leading "/", except for the root"""
