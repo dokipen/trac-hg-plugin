@@ -18,7 +18,8 @@ import posixpath
 import re
 
 from trac.util import TracError, shorten_line, escape, FALSE
-from trac.versioncontrol import Changeset, Node, Repository, IScmBackend
+from trac.versioncontrol import Changeset, Node, Repository, \
+                                IRepositoryConnector
 from trac.versioncontrol.web_ui import ChangesetModule, BrowserModule
 from trac.wiki import IWikiSyntaxProvider
 from trac.core import *
@@ -41,7 +42,7 @@ except ImportError:
 
 class MercurialBackend(Component):
 
-    implements(IScmBackend)
+    implements(IRepositoryConnector)
 
     def identifiers(self):
         """Support the `hg:` and `mercurial:` schemes"""
@@ -50,12 +51,12 @@ class MercurialBackend(Component):
             yield ("mercurial", 8)
             yield ("hg", 8)
 
-    def repository(self, scheme, args, authname):
+    def repository(self, type, dir, authname):
         """Return a `MercurialRepository`"""
         options = {}
-        for key, val in self.config.options(scheme):
+        for key, val in self.config.options(type):
             options[key] = val
-        return MercurialRepository(args, self.log, options)
+        return MercurialRepository(dir, self.log, options)
 
 
 
