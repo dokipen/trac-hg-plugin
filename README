@@ -17,30 +17,29 @@ for the VersioningSystemBackend.
 ==== Trac ====
 The plugin needs a slightly modified version of Trac 0.9, 
 which offers support for pluggable SCM backends.
-This version can be found in
-  source:branches/cboos-dev/vc-refactoring
+This version can be found in source:sandbox/vc-refactoring
 
 Simply do:
 {{{
-svn co http://svn.edgewall.com/repos/trac/branches/cboos-dev/vc-refactoring trac-for-hg
+svn co http://svn.edgewall.com/repos/trac/sandbox/vc-refactoring trac-for-hg
 }}}
 and install from there (`cd trac-for-hg; python setup.py install`).
 
 
-The plugin itself is available from
-  source:branches/cboos-dev/hg-plugin
+The plugin itself is available from source:sandbox/mercurial-plugin
 
 Check it out, too:
 {{{
-svn co http://svn.edgewall.com/repos/trac/branches/cboos-dev/hg-plugin .
+svn co http://svn.edgewall.com/repos/sandbox/mercurial-plugin .
 }}}
 and create an "egg" from there (`cd hg-plugin; python setup.py bdist_egg`).
 Note that you'll need
 [http://peak.telecommunity.com/DevCenter/setuptools setuptools] 
 >= 0.6 for that (I used setuptools-0.6a5).
 
-The initial release of the plugin was made at r2472 and works
-well with the vc-refactoring branch at that revision.
+===== Releases =====
+|| '''Version''' || mercurial-plugin || Trac vc-refactoring ||
+||      0.1      ||       r2482      ||        r2479        ||
 
 
 ==== Mercurial ====
