@@ -19,4 +19,5 @@ setup(name='TracMercurial',
       pluggable SCM backend providers, see %s for more details.
       """ % TracMercurial,
       packages=['hgtrac'],
+      data_files=['COPYING', 'README'],
       entry_points={'trac.plugins': 'hg = hgtrac.hg'})
