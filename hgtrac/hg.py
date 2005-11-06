@@ -196,7 +196,12 @@ class MercurialRepository(Repository):
                             'contain a Mercurial repository.')
         Repository.__init__(self, 'hg:%s' % path, None, log)
 
-#   def has_node(self, path, rev):
+    def hg_time(self, timeinfo):
+        if isinstance(timeinfo, tuple): # since [hg b47f96a178a3]
+            time = timeinfo[0]
+        else: # Mercurial 0.7
+            time = timeinfo.split()[0]
+        return int(time)
 
     def hg_node(self, rev):
         try:
@@ -239,7 +244,7 @@ class MercurialRepository(Repository):
         while seeds:
             cn = seeds[0]
             del seeds[0]
-            time = log.read(cn)[2][0]
+            time = self.hg_time(log.read(cn)[2])
             rev = log.rev(cn)
             if time < start:
                 continue # assume no parent is younger and use next seed
@@ -377,7 +382,7 @@ class MercurialNode(Node):
         if not kind:
             raise TracError("No node at %s in revision %s" \
                             % (path, repos.hg_display(n)))
-        self.time = log.read(node)[2][0]
+        self.time = repos.hg_time(log.read(node)[2])
         rev = repos.hg_display(node)
         Node.__init__(self, path, rev, kind)
 
@@ -475,7 +480,8 @@ class MercurialChangeset(Changeset):
     
     def __init__(self, repos, n):
         log = repos.repo.changelog
-        manifest, user, (time, timezone), files, desc = log.read(n)
+        manifest, user, timeinfo, files, desc = log.read(n)
+        time = repos.hg_time(timeinfo)
         Changeset.__init__(self, repos.hg_display(n), desc, user, time)
         self.repos = repos
         self.n = n
