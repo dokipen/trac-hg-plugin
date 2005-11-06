@@ -145,10 +145,11 @@ class MercurialChangesetModule(ChangesetModule):
     def _render_html(self, req, repos, chgset, diff_options):
         ChangesetModule._render_html(self, req, repos, chgset, diff_options)
         # plus:
-        properties = []        
+        properties = []
+        hg = MercurialConnector(self.env)
         for name, value, htmlclass in chgset.properties():
             if htmlclass == 'changeset':
-                value = ' '.join([self.format_changeset(v, v) for v in \
+                value = ' '.join([hg.format_changeset(v, v) for v in \
                                   value.split()])
             properties.append({'name': name,
                                'value': value,
