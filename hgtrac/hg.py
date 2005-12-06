@@ -419,9 +419,16 @@ class MercurialNode(Node):
                     yield ('', self.repos.hg_display(log.node(r)),
                            r and Changeset.EDIT or Changeset.ADD)
                 return
-            wcr = walkchangerevs(self.repos.ui, self.repos.repo, None,
-                                 ['path:%s' % self.path],
-                                 {'rev': ['%s:0' % hex(self.n)]})
+            # Code compatibility for ''walkchangerevs'':
+            # In Mercurial 0.7, it had 5 arguments, but
+            # [hg 1d7d0c07e8f3] removed the 3rd argument ('cwd').
+            args = (self.repos.ui, self.repos.repo)
+            if walkchangerevs.func_code.co_argcount == 5:
+                args = args + (None,)
+            args = args + (['path:%s' % self.path],
+                           {'rev': ['%s:0' % hex(self.n)]})
+            wcr = walkchangerevs(*args)
+                         
             matches = {}
             for st, rev, fns in wcr[0]:
                 if st == 'window':
