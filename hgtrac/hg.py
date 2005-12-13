@@ -16,7 +16,8 @@ import time
 import posixpath
 import re
 
-from trac.util import TracError, shorten_line, escape, FALSE
+from trac.util import TracError, shorten_line, escape
+from trac.config import _TRUE_VALUES as TRUE
 from trac.versioncontrol import Changeset, Node, Repository, \
                                 IRepositoryConnector
 from trac.versioncontrol.web_ui import ChangesetModule, BrowserModule
@@ -188,7 +189,7 @@ class MercurialRepository(Repository):
         self.repo = hg.repository(ui=self.ui, path=path)
         self.path = self.repo.root
         self._show_rev = 'show_rev' in options \
-                         and options['show_rev'] not in FALSE # defaults to True
+                         and options['show_rev'] in TRUE
         self._node_fmt = 'node_format' in options \
                          and options['node_format']    # will default to 'short'
         if self.path is None:
