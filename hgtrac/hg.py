@@ -42,7 +42,7 @@ except ImportError:
 
 class MercurialConnector(Component):
 
-    implements(IRepositoryConnector)
+    implements(IRepositoryConnector, IWikiSyntaxProvider)
 
     def get_supported_types(self):
         """Support the `hg:` and `mercurial:` schemes (both are synonyms)"""
@@ -62,37 +62,30 @@ class MercurialConnector(Component):
     # IWikiSyntaxProvider methods
     
     def get_wiki_syntax(self):
-        # shorthand form only accept hex digits (no [tip], use tag:tip for that)
-        yield (r"!?\[[a-fA-F\d]+\]",
-               lambda x, y, z: self._format_link(x, 'changeset', y[1:-1], y))
+        return []
 
     def get_link_resolvers(self):
         yield ('cset', self._format_link)
         yield ('chgset', self._format_link)
         yield ('branch', self._format_link)    # go to the corresponding head
         yield ('tag', self._format_link)
-        yield ('changeset', self._format_link)
 
     def _format_link(self, formatter, ns, rev, label):
+        repos = self.env.get_repository()
         if ns == 'branch':
-            repos = self.env.get_repository()
             for b, head in repos.get_branches():
                 if b == rev:
                     rev = head
                     break
-        return self.format_changeset(rev, label)
-
-    def format_changeset(self, rev, label):
-        repos = self.env.get_repository()
         try:
             chgset = repos.get_changeset(rev)
             return '<a class="changeset" title="%s" href="%s">%s</a>' \
                    % (escape(shorten_line(chgset.message)),
-                      self.env.href.changeset(rev), label)
+                      formatter.href.changeset(rev), label)
         except TracError, e:
             return '<a class="missing changeset" title="%s" href="%s"' \
                    ' rel="nofollow">%s</a>' \
-                   % (str(e), self.env.href.changeset(rev), label)
+                   % (str(e), formatter.href.changeset(rev), label)
 
 
 class MercurialBrowserModule(object):
