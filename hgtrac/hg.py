@@ -42,16 +42,16 @@ except ImportError:
 
 class MercurialConnector(Component):
 
-    implements(IRepositoryConnector, IWikiSyntaxProvider)
+    implements(IRepositoryConnector)
 
-    def identifiers(self):
-        """Support the `hg:` and `mercurial:` schemes"""
+    def get_supported_types(self):
+        """Support the `hg:` and `mercurial:` schemes (both are synonyms)"""
         global has_mercurial
         if has_mercurial:
             yield ("mercurial", 8)
             yield ("hg", 8)
 
-    def repository(self, type, dir, authname):
+    def get_repository(self, type, dir, authname):
         """Return a `MercurialRepository`"""
         options = {}
         for key, val in self.config.options(type):
@@ -95,7 +95,7 @@ class MercurialConnector(Component):
                    % (str(e), self.env.href.changeset(rev), label)
 
 
-class MercurialBrowserModule(BrowserModule):
+class MercurialBrowserModule(object):
 
     # IRequestHandler methods
 
@@ -132,7 +132,7 @@ class MercurialBrowserModule(BrowserModule):
         req.hdf['browser.branches'] = branches
             
 
-class MercurialChangesetModule(ChangesetModule):
+class MercurialChangesetModule(object):
 
     # IRequestHandler methods
 
@@ -386,6 +386,8 @@ class MercurialNode(Node):
         self.time = repos.hg_time(log.read(node)[2])
         rev = repos.hg_display(node)
         Node.__init__(self, path, rev, kind)
+        self.created_path = path
+        self.created_rev = rev
 
     def get_content(self):
         if self.isdir:
