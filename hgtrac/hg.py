@@ -125,31 +125,6 @@ class MercurialBrowserModule(object):
         req.hdf['browser.branches'] = branches
             
 
-class MercurialChangesetModule(object):
-
-    # IRequestHandler methods
-
-    def match_request(self, req):
-        # accept any form of revision, including tag names
-        match = re.match(r'/changeset/([\w\-+./:]+)$', req.path_info)
-        if match:
-            req.args['rev'] = match.group(1)
-            return 1
-
-    def _render_html(self, req, repos, chgset, diff_options):
-        ChangesetModule._render_html(self, req, repos, chgset, diff_options)
-        # plus:
-        properties = []
-        hg = MercurialConnector(self.env)
-        for name, value, htmlclass in chgset.properties():
-            if htmlclass == 'changeset':
-                value = ' '.join([hg.format_changeset(v, v) for v in \
-                                  value.split()])
-            properties.append({'name': name,
-                               'value': value,
-                               'htmlclass': htmlclass})
-        req.hdf['changeset.properties'] = properties
-
 
 ### Helpers 
         
@@ -496,12 +471,14 @@ class MercurialChangeset(Changeset):
         self.tags = [t for t in repos.repo.nodetags(n)]
 
     def properties(self):
+        def changeset_links(csets):
+            return ' '.join(['[cset:%s]' % cset for cset in csets])
         if len(self.parents) > 1:
-            yield ('Parents', ' '.join(self.parents), 'changeset')
+            yield ('Parents', changeset_links(self.parents), True, 'changeset')
         if len(self.children) > 1:
-            yield ('Children', ' '.join(self.children), 'changeset')
+            yield ('Children', changeset_links(self.children), True, 'changeset')
         if len(self.tags):
-            yield ('Tags', ' '.join(self.tags), 'changeset')
+            yield ('Tags', changeset_links(self.tags), True, 'changeset')
 
     def get_changes(self):
         repo = self.repos.repo
