@@ -1,7 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 #
 # Copyright (C) 2005 Edgewall Software
-# Copyright (C) 2005 Christian Boos <cboos@neuf.fr>
+# Copyright (C) 2005-2006 Christian Boos <cboos@neuf.fr>
 # All rights reserved.
 #
 # This software may be used and distributed according to the terms
@@ -45,10 +45,9 @@ class MercurialConnector(Component):
     implements(IRepositoryConnector, IWikiSyntaxProvider)
 
     def get_supported_types(self):
-        """Support the `hg:` and `mercurial:` schemes (both are synonyms)"""
+        """Support for `repository_type = hg`"""
         global has_mercurial
         if has_mercurial:
-            yield ("mercurial", 8)
             yield ("hg", 8)
 
     def get_repository(self, type, dir, authname):
@@ -299,6 +298,9 @@ class MercurialRepository(Repository):
 #             else:
 #                 expect_deletion = True
 #                 rev = self.previous_rev(rev)
+
+    def sync(self):
+        pass
 
 
 class MercurialNode(Node):

@@ -7,7 +7,7 @@ TracMercurial = 'http://projects.edgewall.com/trac/wiki/TracMercurial',
 setup(name='TracMercurial',
       description='Mercurial plugin for Trac',
       keywords='trac scm plugin mercurial hg',
-      version='0.1',
+      version='0.2',
       url=TracMercurial,
       license='GPL',
       author='Christian Boos',
@@ -18,6 +18,7 @@ setup(name='TracMercurial',
       It requires a special development version of Trac, which features
       pluggable SCM backend providers, see %s for more details.
       """ % TracMercurial,
-      packages=['hgtrac'],
+      packages=['trac', 'trac.versioncontrol'],
+      namespace_packages = ['trac', 'trac.versioncontrol'],
       data_files=['COPYING', 'README'],
-      entry_points={'trac.plugins': 'hg = hgtrac.hg'})
+      entry_points={'trac.plugins': 'hg = trac.versioncontrol.hg.hg'})
