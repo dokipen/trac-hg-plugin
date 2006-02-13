@@ -21,4 +21,4 @@ setup(name='TracMercurial',
       packages=['trac', 'trac.versioncontrol'],
       namespace_packages = ['trac', 'trac.versioncontrol'],
       data_files=['COPYING', 'README'],
-      entry_points={'trac.plugins': 'hg = trac.versioncontrol.hg.hg'})
+      entry_points={'trac.plugins': 'hg = trac.versioncontrol.hg.backend'})
