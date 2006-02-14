@@ -155,8 +155,9 @@ class MercurialRepository(Repository):
         self.ui = trac_ui()
         self.repo = hg.repository(ui=self.ui, path=path)
         self.path = self.repo.root
-        self._show_rev = 'show_rev' in options \
-                         and options['show_rev'] in TRUE
+        self._show_rev = True
+        if 'show_rev' in options and not options['show_rev'] in TRUE:
+            self._show_rev = False
         self._node_fmt = 'node_format' in options \
                          and options['node_format']    # will default to 'short'
         if self.path is None:
@@ -165,9 +166,10 @@ class MercurialRepository(Repository):
         Repository.__init__(self, 'hg:%s' % path, None, log)
 
     def hg_time(self, timeinfo):
-        if isinstance(timeinfo, tuple): # since [hg b47f96a178a3]
+        # [hg b47f96a178a3] introduced an API change:
+        if isinstance(timeinfo, tuple): # Mercurial 0.8 
             time = timeinfo[0]
-        else: # Mercurial 0.7
+        else:                           # Mercurial 0.7
             time = timeinfo.split()[0]
         return int(time)
 
