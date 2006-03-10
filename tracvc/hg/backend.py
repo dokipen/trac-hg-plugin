@@ -474,7 +474,7 @@ class MercurialChangeset(Changeset):
         self.children = [repos.hg_display(c) for c in log.children(n)]
         self.tags = [t for t in repos.repo.nodetags(n)]
 
-    def properties(self):
+    def get_properties(self):
         def changeset_links(csets):
             return ' '.join(['[cset:%s]' % cset for cset in csets])
         if len(self.parents) > 1:
