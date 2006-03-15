@@ -18,7 +18,6 @@ setup(name='TracMercurial',
       It requires a special development version of Trac, which features
       pluggable SCM backend providers, see %s for more details.
       """ % TracMercurial,
-      packages=['tracvc'],
-      namespace_packages = ['tracvc'],
+      packages=['tracvc', 'tracvc.hg'],
       data_files=['COPYING', 'README'],
       entry_points={'trac.plugins': 'hg = tracvc.hg.backend'})
