@@ -87,44 +87,6 @@ class MercurialConnector(Component):
                    % (str(e), formatter.href.changeset(rev), label)
 
 
-class MercurialBrowserModule(object):
-
-    # IRequestHandler methods
-
-    def process_request(self, req):
-        # before:
-        branch = req.args.get('branch')
-        tag = req.args.get('tag')
-        if branch:
-            req.args['rev'] = branch
-        elif tag:
-            req.args['rev'] = tag
-        return BrowserModule.process_request(self, req)
-
-    def _render_file(self, req, repos, node, rev=None):
-        BrowserModule._render_file(self, req, repos, node, rev)
-        # after:
-        self._add_tags_and_branches(req, repos, rev)
-
-    def _render_directory(self, req, repos, node, rev=None):
-        BrowserModule._render_directory(self, req, repos, node, rev)
-        # after:
-        self._add_tags_and_branches(req, repos, rev)
-
-    # TODO: consider pushing that in BrowserModule.process_request and
-    #       extend the API with Repository.get_tags and Repository.get_branches 
-    def _add_tags_and_branches(self, req, repos, rev):
-        tags = []
-        for t, rev in repos.get_tags():
-            tags.append({'name': escape(t), 'rev': rev})
-        branches = []
-        for b, rev in repos.get_branches():
-            branches.append({'name': escape(b), 'rev': rev})
-        req.hdf['browser.tags'] = tags
-        req.hdf['browser.branches'] = branches
-            
-
-
 ### Helpers 
         
 class trac_ui(ui):
@@ -228,11 +190,11 @@ class MercurialRepository(Repository):
     def get_node(self, path, rev=None):
         return MercurialNode(self, self.normalize_path(path), self.hg_node(rev))
 
-    def get_tags(self):
+    def get_tags(self, rev):
         for tag, n in self.repo.tagslist():
             yield (tag, self.hg_display(n))
 
-    def get_branches(self):
+    def get_branches(self, rev):
         heads = self.repo.changelog.heads()
         brinfo = self.repo.branchlookup(heads)
         for head in heads:
