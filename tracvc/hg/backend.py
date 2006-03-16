@@ -218,7 +218,7 @@ class MercurialRepository(Repository):
         parents.sort()
         return parents and parents[0] or None
     
-    def next_rev(self, rev):
+    def next_rev(self, rev, path=''): # NOTE: path ignored for now
         n = self.hg_node(rev)
         log = self.repo.changelog
         children = [self.hg_display(c) for c in log.children(n)]
