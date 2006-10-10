@@ -429,7 +429,8 @@ class MercurialChangeset(Changeset):
     
     def __init__(self, repos, n):
         log = repos.repo.changelog
-        manifest, user, timeinfo, files, desc = log.read(n)
+        manifest, user, timeinfo, files, desc = log.read(n)[:5]
+        # ignore extended changelog for now (see [hg 2f35961854fb])
         time = repos.hg_time(timeinfo)
         Changeset.__init__(self, repos.hg_display(n), desc, user, time)
         self.repos = repos
