@@ -285,7 +285,8 @@ class MercurialNode(Node):
         if not manifest:
             manifest_n = log.read(n)[0] # 0: manifest node
             manifest = repos.repo.manifest.read(manifest_n)
-            mflags = repos.repo.manifest.readflags(manifest_n)
+            if hasattr(repos.repo.manifest, 'readflags'):
+                mflags = repos.repo.manifest.readflags(manifest_n)
         self.manifest = manifest
         self.mflags = mflags
         
@@ -395,10 +396,14 @@ class MercurialNode(Node):
 
     def get_properties(self):
         if self.isfile:
-            # WARNING: currently a bool, I suspect this will change...
-            if self.mflags[self.path]: 
-                return {'exe': '*'}
-        return {}             # FIXME++: implement pset/pget/plist etc. in hg
+            if self.mflags: # Mercurial upto 9.1
+                exe = self.mflags[self.path]
+            else: # assume Mercurial version >= [abd9a05fca0b]
+                exe = self.manifest.execf(self.path)
+            return exe and {'exe': '*'} or {}
+        return {}
+    # FIXME++: implement pset/pget/plist etc. in hg
+    # (check http://www.selenic.com/hg/?cs=2f35961854fb, extended changelog)
 
     def get_content_length(self):
         if self.isdir:
