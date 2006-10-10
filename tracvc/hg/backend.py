@@ -403,7 +403,7 @@ class MercurialNode(Node):
             return exe and {'exe': '*'} or {}
         return {}
     # FIXME++: implement pset/pget/plist etc. in hg
-    # (check http://www.selenic.com/hg/?cs=2f35961854fb, extended changelog)
+    # (hm, extended changelog is about the *changelog*, not the manifest...)
 
     def get_content_length(self):
         if self.isdir:
@@ -429,8 +429,11 @@ class MercurialChangeset(Changeset):
     
     def __init__(self, repos, n):
         log = repos.repo.changelog
-        manifest, user, timeinfo, files, desc = log.read(n)[:5]
-        # ignore extended changelog for now (see [hg 2f35961854fb])
+        log_data = log.read(n)
+        manifest, user, timeinfo, files, desc = log_data[:5]
+        extra = {}
+        if len(log_data) > 5: # extended changelog, since [hg 2f35961854fb]
+            extra = log_data[5]
         time = repos.hg_time(timeinfo)
         Changeset.__init__(self, repos.hg_display(n), desc, user, time)
         self.repos = repos
@@ -441,6 +444,7 @@ class MercurialChangeset(Changeset):
                         if p != nullid]
         self.children = [repos.hg_display(c) for c in log.children(n)]
         self.tags = [t for t in repos.repo.nodetags(n)]
+        self.extra = extra
 
     def get_properties(self):
         def changeset_links(csets):
@@ -451,6 +455,8 @@ class MercurialChangeset(Changeset):
             yield ('Children', changeset_links(self.children), True, 'changeset')
         if len(self.tags):
             yield ('Tags', changeset_links(self.tags), True, 'changeset')
+        for k, v in self.extra.iteritems():
+            yield (k, v, False, 'message') # TODO: Improve this API...
 
     def get_changes(self):
         repo = self.repos.repo
