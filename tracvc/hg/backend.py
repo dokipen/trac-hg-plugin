@@ -484,7 +484,7 @@ class MercurialChangeset(Changeset):
 
         changes = []
         for file in self.files: # 'added' and 'edited' files
-            if file in deletions: # and since Mercurial > 0.9.1 [hg xxx FIXME]
+            if file in deletions: # and since Mercurial > 0.7 [hg c6ffedc4f11b]
                 continue          # also 'deleted' files
             action = None
             # TODO: find a way to detect conflicts and show how they were solved
