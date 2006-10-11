@@ -483,7 +483,9 @@ class MercurialChangeset(Changeset):
             detect_delete(manifest2, self.parents[1])
 
         changes = []
-        for file in self.files: # edited files
+        for file in self.files: # 'added' and 'edited' files
+            if file in deletions: # and since Mercurial > 0.9.1 [hg xxx FIXME]
+                continue          # also 'deleted' files
             action = None
             # TODO: find a way to detect conflicts and show how they were solved
             if manifest1 and file in manifest1:
