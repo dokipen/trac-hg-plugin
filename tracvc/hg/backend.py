@@ -323,10 +323,12 @@ class MercurialNode(Node):
         Node.__init__(self, path, rev, kind)
         self.created_path = path
         self.created_rev = rev
+        self.data = None
 
     def get_content(self):
         if self.isdir:
             return None
+        self.pos = 0 # reset the read()
         return self # something that can be `read()` ...
 
     def read(self, size=None):
@@ -334,8 +336,14 @@ class MercurialNode(Node):
             return TracError("Can't read from directory %s" % self.path)
         file_n = self.manifest[self.path]
         file = self.repos.repo.file(self.path)
-        data = file.read(file_n)
-        return size and data[:size] or data
+        if self.data is None:
+            self.data = file.read(file_n)
+            self.pos = 0
+        if size:
+            prev_pos = self.pos
+            self.pos += size
+            return self.data[prev_pos:self.pos]
+        return self.data
 
     def get_entries(self):
         if self.isfile:
