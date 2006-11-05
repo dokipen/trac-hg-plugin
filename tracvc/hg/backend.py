@@ -16,7 +16,7 @@ import time
 import posixpath
 import re
 
-from trac.util import TracError, shorten_line, escape
+from trac.util import TracError, shorten_line, escape, to_unicode
 from trac.config import _TRUE_VALUES as TRUE
 from trac.versioncontrol import Changeset, Node, Repository, \
                                 IRepositoryConnector
@@ -443,7 +443,8 @@ class MercurialChangeset(Changeset):
         if len(log_data) > 5: # extended changelog, since [hg 2f35961854fb]
             extra = log_data[5]
         time = repos.hg_time(timeinfo)
-        Changeset.__init__(self, repos.hg_display(n), desc, user, time)
+        Changeset.__init__(self, repos.hg_display(n), to_unicode(desc),
+                           user, time)
         self.repos = repos
         self.n = n
         self.manifest_n = manifest
