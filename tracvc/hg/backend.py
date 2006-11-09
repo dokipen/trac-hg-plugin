@@ -11,7 +11,7 @@
 
 from __future__ import generators
 
-import os.path
+import os
 import time
 import posixpath
 import re
@@ -115,6 +115,11 @@ class MercurialRepository(Repository):
 
     def __init__(self, path, log, options):
         self.ui = trac_ui()
+        if isinstance(path, unicode):
+            str_path = path.encode('utf-8')
+            if not os.path.exists(str_path):
+                str_path = path.encode('latin-1')
+            path = str_path
         self.repo = hg.repository(ui=self.ui, path=path)
         self.path = self.repo.root
         self._show_rev = True
@@ -289,24 +294,33 @@ class MercurialNode(Node):
                 mflags = repos.repo.manifest.readflags(manifest_n)
         self.manifest = manifest
         self.mflags = mflags
-        
+        if isinstance(path, unicode):
+            try:
+                self._init_path(log, path.encode('utf-8'))
+            except TracError: # no such node
+                self._init_path(log, path.encode('latin-1'))
+                # TODO: configurable charset for the repository, i.e. #3809
+        else:
+            self._init_path(log, path)
+
+    def _init_path(self, log, path):
         kind = None
-        if path in manifest: # then it's a file
+        if path in self.manifest: # then it's a file
             kind = Node.FILE
-            file_n = manifest[path]
-            log_rev = repos.repo.file(path).linkrev(file_n)
+            file_n = self.manifest[path]
+            log_rev = self.repos.repo.file(path).linkrev(file_n)
             node = log.node(log_rev)
         else: # it will be a directory if there are matching entries
             dir = path and path+'/' or ''
             entries = {}
             newest = -1
-            for file in manifest.keys():
+            for file in self.manifest.keys():
                 if file.startswith(dir):
                     entry = file[len(dir):].split('/', 1)[0]
                     entries[entry] = 1
                     if path: # small optimization: we skip this for root node
-                        file_n = manifest[file]
-                        log_rev = repos.repo.file(file).linkrev(file_n)
+                        file_n = self.manifest[file]
+                        log_rev = self.repos.repo.file(file).linkrev(file_n)
                         newest = max(log_rev, newest)
             if entries:
                 kind = Node.DIRECTORY
@@ -317,9 +331,9 @@ class MercurialNode(Node):
                     node = log.tip()
         if not kind:
             raise TracError("No node at %s in revision %s" \
-                            % (path, repos.hg_display(n)))
-        self.time = repos.hg_time(log.read(node)[2])
-        rev = repos.hg_display(node)
+                            % (path, self.repos.hg_display(n)))
+        self.time = self.repos.hg_time(log.read(node)[2])
+        rev = self.repos.hg_display(node)
         Node.__init__(self, path, rev, kind)
         self.created_path = path
         self.created_rev = rev
