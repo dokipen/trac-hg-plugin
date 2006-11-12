@@ -9,20 +9,21 @@
 #
 # Author: Christian Boos <cboos@neuf.fr>
 
-from __future__ import generators
-
+from datetime import datetime
 import os
 import time
 import posixpath
 import re
 
-from trac.util import TracError, shorten_line, escape, to_unicode
-from trac.config import _TRUE_VALUES as TRUE
-from trac.versioncontrol import Changeset, Node, Repository, \
-                                IRepositoryConnector
-from trac.versioncontrol.web_ui import ChangesetModule, BrowserModule
-from trac.wiki import IWikiSyntaxProvider
+from genshi.builder import tag
+
 from trac.core import *
+from trac.config import _TRUE_VALUES as TRUE
+from trac.util.datefmt import utc
+from trac.util.text import shorten_line, to_unicode
+from trac.versioncontrol.api import Changeset, Node, Repository, \
+                                    IRepositoryConnector
+from trac.wiki import IWikiSyntaxProvider
 
 try:
     from mercurial import hg
@@ -72,20 +73,19 @@ class MercurialConnector(Component):
     def _format_link(self, formatter, ns, rev, label):
         repos = self.env.get_repository()
         if ns == 'branch':
-            for b, head in repos.get_branches():
+            for b, head in repos.get_branches(): ## FIXME
                 if b == rev:
                     rev = head
                     break
         try:
             chgset = repos.get_changeset(rev)
-            return '<a class="changeset" title="%s" href="%s">%s</a>' \
-                   % (escape(shorten_line(chgset.message)),
-                      formatter.href.changeset(rev), label)
+            return tag.a(label, class_="changeset",
+                         title=shorten_line(chgset.message),
+                         href=formatter.href.changeset(rev))
         except TracError, e:
-            return '<a class="missing changeset" title="%s" href="%s"' \
-                   ' rel="nofollow">%s</a>' \
-                   % (str(e), formatter.href.changeset(rev), label)
-
+            return tag.a(label, class_="missing changeset",
+                         title=str(e), rel="nofollow",
+                         href=formatter.href.changeset(rev))
 
 ### Helpers 
         
@@ -138,7 +138,7 @@ class MercurialRepository(Repository):
             time = timeinfo[0]
         else:                           # Mercurial 0.7
             time = timeinfo.split()[0]
-        return int(time)
+        return datetime.fromtimestamp(time, utc)
 
     def hg_node(self, rev):
         try:
