@@ -31,7 +31,12 @@ try:
     from mercurial.repo import RepoError
     from mercurial.node import hex, short, nullid
     from mercurial.util import pathto
-    from mercurial.commands import walkchangerevs
+    try:
+        # for most recent version (hg:chgset:731e739b8659 at 2006-11-15)
+        from mercurial.cmdutil import walkchangerevs
+    except ImportError:
+        # for older version
+        from mercurial.commands import walkchangerevs
     has_mercurial = True
 except ImportError:
     has_mercurial = False
