@@ -336,7 +336,7 @@ class MercurialNode(Node):
                     node = log.tip()
         if not kind:
             raise TracError("No node at %s in revision %s" \
-                            % (path, self.repos.hg_display(n)))
+                            % (path, self.repos.hg_display(self.n)))
         self.time = self.repos.hg_time(log.read(node)[2])
         rev = self.repos.hg_display(node)
         Node.__init__(self, path, rev, kind)
