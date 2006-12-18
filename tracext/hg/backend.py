@@ -22,7 +22,8 @@ from trac.config import _TRUE_VALUES as TRUE
 from trac.util.datefmt import utc
 from trac.util.text import shorten_line, to_unicode
 from trac.versioncontrol.api import Changeset, Node, Repository, \
-                                    IRepositoryConnector
+                                    IRepositoryConnector, \
+                                    NoSuchChangeset, NoSuchNode
 from trac.wiki import IWikiSyntaxProvider
 
 try:
@@ -50,6 +51,9 @@ class MercurialConnector(Component):
 
     implements(IRepositoryConnector, IWikiSyntaxProvider)
 
+    def __init__(self):
+        self._version = None
+
     def get_supported_types(self):
         """Support for `repository_type = hg`"""
         global has_mercurial
@@ -58,6 +62,10 @@ class MercurialConnector(Component):
 
     def get_repository(self, type, dir, authname):
         """Return a `MercurialRepository`"""
+        if not self._version:
+            from mercurial.version import get_version
+            self._version = get_version()
+            self.env.systeminfo.append(('Mercurial', self._version))
         options = {}
         for key, val in self.config.options(type):
             options[key] = val
@@ -87,9 +95,9 @@ class MercurialConnector(Component):
             return tag.a(label, class_="changeset",
                          title=shorten_line(chgset.message),
                          href=formatter.href.changeset(rev))
-        except TracError, e:
+        except NoSuchChangeset, e:
             return tag.a(label, class_="missing changeset",
-                         title=str(e), rel="nofollow",
+                         title=to_unicode(e), rel="nofollow",
                          href=formatter.href.changeset(rev))
 
 ### Helpers 
@@ -154,7 +162,7 @@ class MercurialRepository(Repository):
                 return self.repo.lookup(rev)
             return self.repo.changelog.tip()
         except RepoError, e:
-            raise TracError(str(e))
+            raise NoSuchChangeset(rev)
 
     def hg_display(self, n):
         nodestr = self._node_fmt == "hex" and hex(n) or short(n)
@@ -216,7 +224,9 @@ class MercurialRepository(Repository):
             yield (branch, rev)
             
     def get_oldest_rev(self):
-        return self.hg_display(self.repo.changelog.node(0))
+        """Well, there are 0 or many..."""
+        oldest = self.repo.changelog.children(nullid)
+        return self.hg_display(oldest and oldest[0] or nullid)
 
     def get_youngest_rev(self):
         return self.hg_display(self.repo.changelog.tip())
@@ -302,7 +312,7 @@ class MercurialNode(Node):
         if isinstance(path, unicode):
             try:
                 self._init_path(log, path.encode('utf-8'))
-            except TracError: # no such node
+            except NoSuchNode:
                 self._init_path(log, path.encode('latin-1'))
                 # TODO: configurable charset for the repository, i.e. #3809
         else:
@@ -335,8 +345,12 @@ class MercurialNode(Node):
                 else: # ... as it's the youngest anyway
                     node = log.tip()
         if not kind:
-            raise TracError("No node at %s in revision %s" \
-                            % (path, self.repos.hg_display(self.n)))
+            if log.tip() == nullid: # empty repository
+                kind = Node.DIRECTORY
+                self.entries = []
+                node = nullid
+            else:
+                raise NoSuchNode(path, self.repos.hg_display(self.n))
         self.time = self.repos.hg_time(log.read(node)[2])
         rev = self.repos.hg_display(node)
         Node.__init__(self, path, rev, kind)
