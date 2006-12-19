@@ -224,9 +224,7 @@ class MercurialRepository(Repository):
             yield (branch, rev)
             
     def get_oldest_rev(self):
-        """Well, there are 0 or many..."""
-        oldest = self.repo.changelog.children(nullid)
-        return self.hg_display(oldest and oldest[0] or nullid)
+        return self.hg_display(nullid)
 
     def get_youngest_rev(self):
         return self.hg_display(self.repo.changelog.tip())
