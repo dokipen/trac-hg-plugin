@@ -19,6 +19,7 @@ from genshi.builder import tag
 
 from trac.core import *
 from trac.config import _TRUE_VALUES as TRUE
+from trac.util.compat import sorted, reversed
 from trac.util.datefmt import utc
 from trac.util.text import shorten_line, to_unicode
 from trac.versioncontrol.api import Changeset, Node, Repository, \
@@ -183,6 +184,31 @@ class MercurialRepository(Repository):
         """Return the revision number for the specified rev"""
         return self.repo.changelog.rev(self.hg_node(rev))
 
+    def get_quickjump_entries(self, rev):
+        # branches
+        if hasattr(self.repo, 'branchtags'):
+            # New 0.9.2 style branches, since [hg 028fff46a4ac]
+            for t, n in sorted(self.repo.branchtags().items(), reverse=True,
+                               key=lambda (t, n): self.repo.changelog.rev(n)):
+                yield ('branches', t, '/', self.hg_display(n))
+        else:
+            # Old style branches
+            heads = self.repo.changelog.heads()
+            brinfo = self.repo.branchlookup(heads)
+            for head in heads:
+                rev = self.hg_display(head)
+                if head in brinfo:
+                    branch = ' '.join(brinfo[head])
+                else:
+                    branch = rev
+                yield ('(old-style) branches', branch, '/', rev)
+        # tags
+        for t, n in reversed(self.repo.tagslist()):
+            try:
+                yield ('tags', t, '/', self.hg_display(n))
+            except KeyError:
+                pass
+
     def get_changeset(self, rev):
         return MercurialChangeset(self, self.hg_node(rev))
 
@@ -208,21 +234,6 @@ class MercurialRepository(Repository):
     def get_node(self, path, rev=None):
         return MercurialNode(self, self.normalize_path(path), self.hg_node(rev))
 
-    def get_tags(self, rev):
-        for tag, n in self.repo.tagslist():
-            yield (tag, self.hg_display(n))
-
-    def get_branches(self, rev):
-        heads = self.repo.changelog.heads()
-        brinfo = self.repo.branchlookup(heads)
-        for head in heads:
-            rev = self.hg_display(head)
-            if head in brinfo:
-                branch = ' '.join(brinfo[head])
-            else:
-                branch = rev
-            yield (branch, rev)
-            
     def get_oldest_rev(self):
         return self.hg_display(nullid)
 
