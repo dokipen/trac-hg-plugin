@@ -181,7 +181,8 @@ class MercurialRepository(Repository):
         return self.hg_display(self.hg_node(rev))
 
     def short_rev(self, rev):
-        """Return the revision number for the specified rev"""
+        """Return the revision number for the specified rev, in compact form.
+        """
         return self.repo.changelog.rev(self.hg_node(rev))
 
     def get_quickjump_entries(self, rev):
@@ -210,7 +211,7 @@ class MercurialRepository(Repository):
                 pass
 
     def get_changeset(self, rev):
-        return MercurialChangeset(self, self.hg_node(rev))
+        return MercurialChangeset(self, self.hg_node(unicode(rev)))
 
     def get_changesets(self, start, stop):
         """Follow each head and parents in order to get all changesets"""
@@ -444,6 +445,14 @@ class MercurialNode(Node):
         if newer:
             yield newer
 
+    def get_annotations(self):
+        from mercurial.context import filectx
+        fctx = filectx(self.repos.repo, self.path, self.n)
+        annotations = []
+        for fc, line in fctx.annotate(follow=True):
+            annotations.append(fc.rev())
+        return annotations
+        
     def get_properties(self):
         if self.isfile:
             if self.mflags: # Mercurial upto 9.1
