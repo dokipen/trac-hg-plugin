@@ -332,8 +332,9 @@ class MercurialNode(Node):
         kind = None
         if path in self.manifest: # then it's a file
             kind = Node.FILE
-            file_n = self.manifest[path]
-            log_rev = self.repos.repo.file(path).linkrev(file_n)
+            self.file_n = self.manifest[path]
+            self.file = self.repos.repo.file(path)
+            log_rev = self.file.linkrev(self.file_n)
             node = log.node(log_rev)
         else: # it will be a directory if there are matching entries
             dir = path and path+'/' or ''
@@ -377,10 +378,8 @@ class MercurialNode(Node):
     def read(self, size=None):
         if self.isdir:
             return TracError("Can't read from directory %s" % self.path)
-        file_n = self.manifest[self.path]
-        file = self.repos.repo.file(self.path)
         if self.data is None:
-            self.data = file.read(file_n)
+            self.data = self.file.read(self.file_n)
             self.pos = 0
         if size:
             prev_pos = self.pos
@@ -430,11 +429,9 @@ class MercurialNode(Node):
                                Changeset.EDIT)
             return
         # file history
-        file_n = self.manifest[self.path]
-        file = self.repos.repo.file(self.path)
         # FIXME: COPY currently unsupported        
-        for file_rev in xrange(file.rev(file_n), -1, -1):
-            rev = log.node(file.linkrev(file.node(file_rev)))
+        for file_rev in xrange(self.file.rev(self.file_n), -1, -1):
+            rev = log.node(self.file.linkrev(self.file.node(file_rev)))
             older = (self.path, self.repos.hg_display(rev), Changeset.ADD)
             if newer:
                 change = newer[0] == older[0] and Changeset.EDIT or \
@@ -467,7 +464,8 @@ class MercurialNode(Node):
     def get_content_length(self):
         if self.isdir:
             return None
-        return len(self.read())
+        # since 441ea218414e, i.e. shortly after 0.8.1
+        return self.file.size(self.file.rev(self.file_n))
 
     def get_content_type(self):
         if self.isdir:
@@ -495,7 +493,7 @@ class MercurialChangeset(Changeset):
             extra = log_data[5]
         time = repos.hg_time(timeinfo)
         Changeset.__init__(self, repos.hg_display(n), to_unicode(desc),
-                           user, time)
+                           to_unicode(user), time)
         self.repos = repos
         self.n = n
         self.manifest_n = manifest
