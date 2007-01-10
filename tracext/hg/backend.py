@@ -45,8 +45,33 @@ except ImportError:
     ui = object
     pass
 
+try:
+    from trac.versioncontrol.web_ui import IPropertyRenderer
+    has_property_renderer = True
+except ImportError:
+    has_property_renderer = False
+
 
 ### Components
+
+if has_property_renderer:
+    class CsetPropertyRenderer(Component):
+        implements(IPropertyRenderer)
+
+        def match_property(self, name, mode):
+            return (name in ('Parents', 'Children', 'Tags') and
+                    mode == 'revprop') and 4 or 0
+        
+        def render_property(self, name, mode, context, props):
+            revs = props[name]
+            def link(rev):
+                chgset = context.env.get_repository().get_changeset(rev)
+                return tag.a(rev, class_="changeset",
+                             title=shorten_line(chgset.message),
+                             href=context.href.changeset(rev))
+            return tag([tag(link(rev), ', ') for rev in revs[:-1]],
+                       link(revs[-1]))
+
 
 class MercurialConnector(Component):
 
@@ -504,17 +529,28 @@ class MercurialChangeset(Changeset):
         self.tags = [t for t in repos.repo.nodetags(n)]
         self.extra = extra
 
-    def get_properties(self):
-        def changeset_links(csets):
-            return ' '.join(['[cset:%s]' % cset for cset in csets])
-        if len(self.parents) > 1:
-            yield ('Parents', changeset_links(self.parents), True, 'changeset')
-        if len(self.children) > 1:
-            yield ('Children', changeset_links(self.children), True, 'changeset')
-        if len(self.tags):
-            yield ('Tags', changeset_links(self.tags), True, 'changeset')
-        for k, v in self.extra.iteritems():
-            yield (k, v, False, 'message') # TODO: Improve this API...
+    if has_property_renderer:
+        def get_properties(self):
+            properties = {}
+            if len(self.parents) > 1:
+                properties['Parents'] = self.parents
+            if len(self.children) > 1:
+                properties['Children'] = self.children
+            if len(self.tags):
+                properties['Tags'] = self.tags
+            return properties
+    else: # remove once 0.11 is released
+        def get_properties(self):
+            def changeset_links(csets):
+                return ' '.join(['[cset:%s]' % cset for cset in csets])
+            if len(self.parents) > 1:
+                yield ('Parents', changeset_links(self.parents), True, 'changeset')
+            if len(self.children) > 1:
+                yield ('Children', changeset_links(self.children), True, 'changeset')
+            if len(self.tags):
+                yield ('Tags', changeset_links(self.tags), True, 'changeset')
+            for k, v in self.extra.iteritems():
+                yield (k, v, False, 'message')
 
     def get_changes(self):
         repo = self.repos.repo
