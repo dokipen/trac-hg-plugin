@@ -180,17 +180,29 @@ class MercurialRepository(Repository):
         return datetime.fromtimestamp(time, utc)
 
     def hg_node(self, rev):
+        """Return a changelog node for the given revision.
+
+        `rev` can be any kind of revision specification string.
+        If `None`, ''tip'' will be returned.
+        """
         try:
             if rev:
-                m = re.match(r"(\d+):", rev)
-                if m:
-                    rev = m.group(1)
+                rev = rev.split(':', 1)[0]
+                if rev.isdigit():
+                    try:
+                        return self.repo.changelog.node(rev)
+                    except:
+                        pass
                 return self.repo.lookup(rev)
             return self.repo.changelog.tip()
         except RepoError, e:
             raise NoSuchChangeset(rev)
 
     def hg_display(self, n):
+        """Return user-readable revision information for node `n`.
+
+        The specific format depends on the `node_format` and `show_rev` options
+        """
         nodestr = self._node_fmt == "hex" and hex(n) or short(n)
         if self._show_rev:
             return '%s:%s' % (self.repo.changelog.rev(n), nodestr)
@@ -208,6 +220,11 @@ class MercurialRepository(Repository):
     def short_rev(self, rev):
         """Return the revision number for the specified rev, in compact form.
         """
+        if rev:
+            if isinstance(rev, basestring) and rev.isdigit():
+                rev = int(rev)
+            if 0 <= rev < self.repo.changelog.count():
+                return rev # it was already a short rev
         return self.repo.changelog.rev(self.hg_node(rev))
 
     def get_quickjump_entries(self, rev):
