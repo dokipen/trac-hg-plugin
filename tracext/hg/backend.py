@@ -209,6 +209,9 @@ class MercurialRepository(Repository):
         else:
             return nodestr
 
+    def close(self):
+        self.repo = None
+
     def normalize_path(self, path):
         """Remove leading "/", except for the root"""
         return path and path.strip('/') or ''
