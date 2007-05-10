@@ -259,7 +259,24 @@ class MercurialRepository(Repository):
         return MercurialChangeset(self, self.hg_node(unicode(rev)))
 
     def get_changesets(self, start, stop):
-        """Follow each head and parents in order to get all changesets"""
+        """Follow each head and parents in order to get all changesets
+
+        FIXME: this should be handled by the repository cache as well.
+        
+        The code below is only an heuristic, and doesn't work in the
+        general case. E.g. look at the mercurial repository timeline
+        for 2006-10-18, you need to give ''38'' daysback in order to see
+        the changesets from 2006-10-17...
+        This is because of the following '''linear''' sequence of csets:
+          - 3445:233c733e4af5         10/18/2006 9:08:36 AM mpm
+          - 3446:0b450267cf47         9/10/2006 3:25:06 AM  hopper
+          - 3447:ef1032c223e7         9/10/2006 3:25:06 AM  hopper
+          - 3448:6ca49c5fe268         9/10/2006 3:25:07 AM  hopper
+          - 3449:c8686e3f0291         10/18/2006 9:14:26 AM hopper
+          This is most probably because [3446:3448] correspond to
+          old changesets that have been ''hg import''ed, with their
+          original dates.
+        """
         log = self.repo.changelog
         seen = {nullid: 1}
         seeds = log.heads()
@@ -269,7 +286,8 @@ class MercurialRepository(Repository):
             time = self.hg_time(log.read(cn)[2])
             rev = log.rev(cn)
             if time < start:
-                continue # assume no parent is younger and use next seed
+                continue # assume no ancestor is younger and use next seed
+                # (and that assumption is wrong for 3448 in the example above)
             elif time < stop:
                 yield MercurialChangeset(self, cn)
             for p in log.parents(cn):
