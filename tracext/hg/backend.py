@@ -613,6 +613,7 @@ class MercurialChangeset(Changeset):
         if manifest2:
             detect_delete(manifest2, self.parents[1])
 
+        renames = {}
         changes = []
         for f in self.files: # 'added' and 'edited' files
             if f in deletions: # and since Mercurial > 0.7 [hg c6ffedc4f11b]
@@ -634,7 +635,7 @@ class MercurialChangeset(Changeset):
                     base_rev = self.repos.hg_display(log.node(linkedrev))
                     if base_path in deletions:
                         action = Changeset.MOVE
-                        del deletions[base_path]
+                        renames[base_path] = f
                     else:
                         action = Changeset.COPY
                 else:
@@ -644,7 +645,8 @@ class MercurialChangeset(Changeset):
                 changes.append((f, Node.FILE, action, base_path, base_rev))
 
         for f, p in deletions.items():
-            changes.append((f, Node.FILE, Changeset.DELETE, f, p))
+            if f not in renames:
+                changes.append((f, Node.FILE, Changeset.DELETE, f, p))
         changes.sort()
         for change in changes:
             yield change
