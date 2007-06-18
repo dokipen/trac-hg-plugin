@@ -595,39 +595,39 @@ class MercurialChangeset(Changeset):
         log = repo.changelog
         parents = log.parents(self.n)
         manifest = repo.manifest.read(self.manifest_n)
-        manifest1 = None
+        manifest1 = manifest2 = None
         if parents:
             man_node1 = log.read(parents[0])[0]
             manifest1 = repo.manifest.read(man_node1)
-            manifest2 = None
             if len(parents) > 1:
                 man_node2 = log.read(parents[1])[0]
                 manifest2 = repo.manifest.read(man_node2)
 
         deletions = {}
         def detect_delete(pmanifest, p):
-            for file in pmanifest.keys():
-                if file not in manifest:
-                    deletions[file] = p
+            for f in pmanifest.keys():
+                if f not in manifest:
+                    deletions[f] = p
         if manifest1:
             detect_delete(manifest1, self.parents[0])
         if manifest2:
             detect_delete(manifest2, self.parents[1])
 
         changes = []
-        for file in self.files: # 'added' and 'edited' files
-            if file in deletions: # and since Mercurial > 0.7 [hg c6ffedc4f11b]
+        for f in self.files: # 'added' and 'edited' files
+            if f in deletions: # and since Mercurial > 0.7 [hg c6ffedc4f11b]
                 continue          # also 'deleted' files
             action = None
             # TODO: find a way to detect conflicts and show how they were solved
-            if manifest1 and file in manifest1:
+            if manifest1 and f in manifest1:
                 action = Changeset.EDIT                
-                changes.append((file, Node.FILE, action, file, self.parents[0]))
-            if manifest2 and file in manifest2:
+                changes.append((f, Node.FILE, action, f, self.parents[0]))
+            if manifest2 and f in manifest2:
                 action = Changeset.EDIT                
-                changes.append((file, Node.FILE, action, file, self.parents[1]))
+                changes.append((f, Node.FILE, action, f, self.parents[1]))
+
             if not action:
-                rename_info = repo.file(file).renamed(manifest[file])
+                rename_info = repo.file(f).renamed(manifest[f])
                 if rename_info:
                     base_path = rename_info[0]
                     linkedrev = repo.file(base_path).linkrev(rename_info[1])
@@ -641,10 +641,10 @@ class MercurialChangeset(Changeset):
                     action = Changeset.ADD
                     base_path = ''
                     base_rev = None
-                changes.append((file, Node.FILE, action, base_path, base_rev))
+                changes.append((f, Node.FILE, action, base_path, base_rev))
 
-        for file, p in deletions.items():
-            changes.append((file, Node.FILE, Changeset.DELETE, file, p))
+        for f, p in deletions.items():
+            changes.append((f, Node.FILE, Changeset.DELETE, f, p))
         changes.sort()
         for change in changes:
             yield change
