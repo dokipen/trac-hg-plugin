@@ -96,7 +96,8 @@ class MercurialConnector(Component):
     # IWikiSyntaxProvider methods
     
     def get_wiki_syntax(self):
-        return []
+        yield (r'[0-9a-f]{12,40}', lambda formatter, label, match:
+               self._format_link(formatter, 'cset', label, label))
 
     def get_link_resolvers(self):
         yield ('cset', self._format_link)
