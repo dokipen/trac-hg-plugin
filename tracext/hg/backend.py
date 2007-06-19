@@ -32,13 +32,8 @@ try:
     from mercurial.ui import ui
     from mercurial.repo import RepoError
     from mercurial.node import hex, short, nullid
-    from mercurial.util import pathto
-    try:
-        # for most recent version (hg:chgset:731e739b8659 at 2006-11-15)
-        from mercurial.cmdutil import walkchangerevs
-    except ImportError:
-        # for older version
-        from mercurial.commands import walkchangerevs
+    from mercurial.util import pathto, cachefunc
+    from mercurial.cmdutil import walkchangerevs
     has_mercurial = True
 except ImportError:
     has_mercurial = False
@@ -462,7 +457,9 @@ class MercurialNode(Node):
     def get_history(self, limit=None):
         newer = None # 'newer' is the previously seen history tuple
         older = None # 'older' is the currently examined history tuple
-        log = self.repos.repo.changelog
+        repo = self.repos.repo
+        log = repo.changelog
+        
         # directory history
         if self.isdir:
             if not self.path: # special case for the root
@@ -470,26 +467,14 @@ class MercurialNode(Node):
                     yield ('', self.repos.hg_display(log.node(r)),
                            r and Changeset.EDIT or Changeset.ADD)
                 return
-            # Code compatibility for ''walkchangerevs'':
-            # In Mercurial 0.7, it had 5 arguments, but
-            # [hg 1d7d0c07e8f3] removed the 3rd argument ('cwd').
-            args = (self.repos.ui, self.repos.repo)
-            if walkchangerevs.func_code.co_argcount == 5:
-                args = args + (None,)
-            args = args + (['path:%s' % self.path],
-                           {'rev': ['%s:0' % hex(self.n)]})
-            wcr = walkchangerevs(*args)
-                         
-            matches = {}
+            getchange = cachefunc(lambda r:repo.changectx(r).changeset())
+            pats = ['path:' + self.path]
+            opts = {'rev': ['%s:0' % hex(self.n)]}
+            wcr = walkchangerevs(self.repos.ui, repo, pats, getchange, opts)
             for st, rev, fns in wcr[0]:
-                if st == 'window':
-                    matches.clear()
-                elif st == 'add':
-                    matches[rev] = 1
-                elif st == 'iter':
-                    if matches[rev]:
-                        yield (self.path, self.repos.hg_display(log.node(rev)),
-                               Changeset.EDIT)
+                if st == 'iter':
+                    yield (self.path, self.repos.hg_display(log.node(rev)),
+                           Changeset.EDIT)
             return
         # file history
         # FIXME: COPY currently unsupported        
