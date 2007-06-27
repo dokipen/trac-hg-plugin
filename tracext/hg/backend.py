@@ -27,6 +27,13 @@ from trac.versioncontrol.api import Changeset, Node, Repository, \
                                     NoSuchChangeset, NoSuchNode
 from trac.wiki import IWikiSyntaxProvider
 
+# Preemptively disable Mercurial's `demandimport` mechanism
+try:
+    from mercurial import demandimport
+    demandimport.enable = lambda : None
+except ImportError:
+    pass
+
 try:
     from mercurial import hg
     from mercurial.ui import ui
