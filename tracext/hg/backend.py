@@ -27,11 +27,20 @@ from trac.versioncontrol.api import Changeset, Node, Repository, \
                                     NoSuchChangeset, NoSuchNode
 from trac.wiki import IWikiSyntaxProvider
 
-# Preemptively disable Mercurial's `demandimport` mechanism
-
 try:
-    from mercurial import demandimport
-    demandimport.enable();
+    # The new `demandimport` mechanism doesn't play well with code relying
+    # on the `ImportError` exception being caught.
+    # OTOH, we can't disable `demandimport` because mercurial relies on it
+    # (circular reference issue). So for now, we activate `demandimport`
+    # before loading mercurial modules, and desactivate it afterwards.
+    #
+    # See http://www.selenic.com/mercurial/bts/issue605
+    
+    try:
+        from mercurial import demandimport
+        demandimport.enable();
+    except ImportError:
+        demandimport = None
 
     from mercurial import hg
     from mercurial.ui import ui
@@ -40,12 +49,12 @@ try:
     from mercurial.util import pathto, cachefunc
     from mercurial.cmdutil import walkchangerevs
 
-    demandimport.disable();
+    if demandimport:
+        demandimport.disable();
     has_mercurial = True
 except ImportError:
     has_mercurial = False
     ui = object
-    pass
 
 try:
     from trac.versioncontrol.web_ui import IPropertyRenderer
