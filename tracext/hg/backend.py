@@ -371,6 +371,59 @@ class MercurialRepository(Repository):
     def sync(self):
         pass
 
+    def get_changes(self, old_path, old_rev, new_path, new_rev,
+                    ignore_ancestry=1):
+        """Generates changes corresponding to generalized diffs.
+        
+        Generator that yields change tuples (old_node, new_node, kind, change)
+        for each node change between the two arbitrary (path,rev) pairs.
+
+        The old_node is assumed to be None when the change is an ADD,
+        the new_node is assumed to be None when the change is a DELETE.
+        """
+        old_node = new_node = None
+        if self.has_node(old_path, old_rev):
+            old_node = self.get_node(old_path, old_rev)
+        else:
+            raise NoSuchNode(old_path, old_rev, 'The Base for Diff is invalid')
+        if self.has_node(new_path, new_rev):
+            new_node = self.get_node(new_path, new_rev)
+        else:
+            raise NoSuchNode(new_path, new_rev, 'The Target for Diff is invalid')
+        # check kind, both should be same.
+        if new_node.kind != old_node.kind:
+            raise TracError('Diff mismatch: Base is a %s (%s in revision %s) '
+                            'and Target is a %s (%s in revision %s).' \
+                            % (old_node.kind, old_path, old_rev,
+                               new_node.kind, new_path, new_rev))
+        # Correct change info from changelog(revlog)
+        # Finding changes between two revs requires tracking back
+        # several routes.
+                              
+        if new_node.isdir:
+            # TODO: Should we follow rename and copy?
+            # As temporary implement, simply compare entry names.
+            old_dict = {}
+            for ent in old_node.get_entries():
+                old_dict[ent.path] = ent
+            for entry in new_node.get_entries():
+                path = entry.path
+                if not old_dict.has_key(path):
+                    # add
+                    yield(None, entry, entry.kind, Changeset.ADD)
+                elif old_node.manifest[path] != new_node.manifest[path]:
+                    # edit
+                    yield(old_dict[path], entry, entry.kind, Changeset.EDIT)
+                    del old_dict[path]
+                else:
+                    # not changed
+                    del old_dict[path]
+            for entry in old_dict.values():
+                yield(entry, None, entry.kind, Changeset.DELETE)
+        else:
+            if old_node.manifest[old_node.path] != new_node.manifest[new_node.path]:
+                yield(old_node, new_node, Node.FILE, Changeset.EDIT)
+            
 
 class MercurialNode(Node):
     """A path in the repository, at a given revision.
