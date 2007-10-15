@@ -1,7 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 #
 # Copyright (C) 2005 Edgewall Software
-# Copyright (C) 2005-2006 Christian Boos <cboos@neuf.fr>
+# Copyright (C) 2005-2007 Christian Boos <cboos@neuf.fr>
 # All rights reserved.
 #
 # This software may be used and distributed according to the terms
@@ -14,6 +14,9 @@ import os
 import time
 import posixpath
 import re
+
+import pkg_resources
+pkg_resources.require('Trac>=0.11dev')
 
 from genshi.builder import tag
 
