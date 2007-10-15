@@ -500,6 +500,10 @@ class MercurialNode(Node):
         self.created_rev = rev
         self.data = None
 
+    def subnode(self, p):
+        """Return a node with the same revision information but another path"""
+        return MercurialNode(self.repos, p, self.n, self.manifest, self.mflags)
+
     def get_content(self):
         if self.isdir:
             return None
@@ -524,8 +528,7 @@ class MercurialNode(Node):
         for entry in self.entries:
             if self.path:
                 entry = posixpath.join(self.path, entry)
-            yield MercurialNode(self.repos, entry, self.n,
-                                self.manifest, self.mflags)
+            yield self.subnode(entry)
 
     def get_history(self, limit=None):
         newer = None # 'newer' is the previously seen history tuple
