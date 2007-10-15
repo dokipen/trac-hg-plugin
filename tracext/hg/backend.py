@@ -405,26 +405,32 @@ class MercurialRepository(Repository):
                               
         if new_node.isdir:
             # TODO: Should we follow rename and copy?
-            # As temporary implement, simply compare entry names.
-            old_dict = {}
-            for ent in old_node.get_entries():
-                old_dict[ent.path] = ent
-            for entry in new_node.get_entries():
-                path = entry.path
-                if not old_dict.has_key(path):
-                    # add
-                    yield(None, entry, entry.kind, Changeset.ADD)
-                elif old_node.manifest[path] != new_node.manifest[path]:
-                    # edit
-                    yield(old_dict[path], entry, entry.kind, Changeset.EDIT)
-                    del old_dict[path]
-                else:
-                    # not changed
-                    del old_dict[path]
-            for entry in old_dict.values():
-                yield(entry, None, entry.kind, Changeset.DELETE)
+            # As temporary workaround, simply compare entry names.
+            changes = []
+            for path in new_node.manifest:
+                if new_path and not path.startswith(new_path+'/'):
+                    continue
+                op = old_path + path[len(new_path):]
+                if op not in old_node.manifest:
+                    changes.append((path, None, new_node.subnode(path),
+                                    Node.FILE, Changeset.ADD))
+                elif old_node.manifest[op] != new_node.manifest[path]:
+                    changes.append((path, old_node.subnode(op),
+                                    new_node.subnode(path),
+                                    Node.FILE, Changeset.EDIT))
+                # otherwise, not changed
+            for path in old_node.manifest:
+                if old_path and not path.startswith(old_path+'/'):
+                    continue
+                np = new_path + path[len(old_path):]
+                if np not in new_node.manifest:
+                    changes.append((path, old_node.subnode(np), None,
+                                    Node.FILE, Changeset.DELETE))
+            for change in sorted(changes, key=lambda c: c[0]):
+                yield(change[1], change[2], change[3], change[4])
         else:
-            if old_node.manifest[old_node.path] != new_node.manifest[new_node.path]:
+            if old_node.manifest[old_node.path] != \
+                   new_node.manifest[new_node.path]:
                 yield(old_node, new_node, Node.FILE, Changeset.EDIT)
             
 
