@@ -238,7 +238,7 @@ class MercurialRepository(Repository):
     def short_rev(self, rev):
         """Return the revision number for the specified rev, in compact form.
         """
-        if rev:
+        if rev is not None:
             if isinstance(rev, basestring) and rev.isdigit():
                 rev = int(rev)
             if 0 <= rev < self.repo.changelog.count():
