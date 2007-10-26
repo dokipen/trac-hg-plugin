@@ -79,7 +79,7 @@ if has_property_renderer:
         def render_property(self, name, mode, context, props):
             revs = props[name]
             def link(rev):
-                chgset = context.env.get_repository().get_changeset(rev)
+                chgset = self.env.get_repository().get_changeset(rev)
                 return tag.a(rev, class_="changeset",
                              title=shorten_line(chgset.message),
                              href=context.href.changeset(rev))
