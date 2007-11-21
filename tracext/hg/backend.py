@@ -174,8 +174,11 @@ class MercurialRepository(Repository):
             if not os.path.exists(str_path):
                 str_path = path.encode('latin-1')
             path = str_path
-        self.repo = hg.repository(ui=self.ui, path=path)
-        self.path = self.repo.root
+        try:
+            self.repo = hg.repository(ui=self.ui, path=path)
+            self.path = self.repo.root
+        except RepoError, e:
+            self.path = None
         self._show_rev = True
         if 'show_rev' in options and not options['show_rev'] in TRUE:
             self._show_rev = False
