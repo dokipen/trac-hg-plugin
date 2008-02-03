@@ -51,9 +51,11 @@ try:
     from mercurial.node import hex, short, nullid
     from mercurial.util import pathto, cachefunc
     from mercurial.cmdutil import walkchangerevs
+    from mercurial import extensions
 
     if demandimport:
         demandimport.disable();
+    
     has_mercurial = True
 except ImportError:
     has_mercurial = False
@@ -79,7 +81,7 @@ if has_property_renderer:
         def render_property(self, name, mode, context, props):
             revs = props[name]
             def link(rev):
-                chgset = self.env.get_repository().get_changeset(rev)
+                chgset = context.env.get_repository().get_changeset(rev)
                 return tag.a(rev, class_="changeset",
                              title=shorten_line(chgset.message),
                              href=context.href.changeset(rev))
@@ -93,6 +95,33 @@ class MercurialConnector(Component):
 
     def __init__(self):
         self._version = None
+        self.ui = None
+
+    def _setup_ui(self, hgrc_path):
+        self.ui = trac_ui(self.log)
+        # (code below adapted from mercurial.dispatch._dispatch)
+
+        # read the local repository .hgrc into a local ui object
+        if hgrc_path:
+            if not os.path.isabs(hgrc_path):
+                hgrc_path = os.path.join(self.env.path, 'conf', hgrc_path)
+            if not os.path.exists(hgrc_path):
+                self.log.warn("[hg] hgrc file (%s) doesn't exist.", hgrc_path) 
+            try:
+                self.ui = trac_ui(self.log, parentui=self.ui)
+                self.ui.check_trusted = False
+                self.ui.readconfig(hgrc_path)
+            except IOError, e:
+                self.log.warn("[hg] hgrc file (%s) can't be read: %s", 
+                              hgrc_path, e)
+
+        extensions.loadall(self.ui)
+        if hasattr(extensions, 'extensions'):
+            for name, module in exts.extensions():
+                # setup extensions
+                extsetup = getattr(module, 'extsetup', None)
+                if extsetup:
+                    extsetup()
 
     def get_supported_types(self):
         """Support for `repository_type = hg`"""
@@ -106,10 +135,12 @@ class MercurialConnector(Component):
             from mercurial.version import get_version
             self._version = get_version()
             self.env.systeminfo.append(('Mercurial', self._version))
+        if not self.ui:
+            self._setup_ui(self.config.get(type, 'hgrc'))
         options = {}
         for key, val in self.config.options(type):
             options[key] = val
-        return MercurialRepository(dir, self.log, options)
+        return MercurialRepository(dir, self.log, self.ui, options)
 
 
     # IWikiSyntaxProvider methods
@@ -144,11 +175,22 @@ class MercurialConnector(Component):
 ### Helpers 
         
 class trac_ui(ui):
-    def __init__(self):
-        ui.__init__(self, interactive=False)
+    def __init__(self, log, *args, **kwargs):
+        kwargs = kwargs.copy()
+        kwargs['interactive'] = False
+        ui.__init__(self, *args, **kwargs)
+        self.log = log
         
-    def write(self, *args): pass
-    def write_err(self, str): pass
+    def write(self, *args):
+        for a in args:
+            self.log.info('(mercurial status) %s', a)
+
+    def write_err(self, *args):
+        for a in args:
+            self.log.warn('(mercurial warning) %s', a)
+
+    def isatty(self): 
+        return False
 
     def readline(self):
         raise TracError('*** Mercurial ui.readline called ***')
@@ -167,15 +209,16 @@ class MercurialRepository(Repository):
     additional changeset properties.
     """
 
-    def __init__(self, path, log, options):
-        self.ui = trac_ui()
+    def __init__(self, path, log, ui, options):
+        self.ui = ui
+        # TODO: per repository ui and options?
         if isinstance(path, unicode):
             str_path = path.encode('utf-8')
             if not os.path.exists(str_path):
                 str_path = path.encode('latin-1')
             path = str_path
         try:
-            self.repo = hg.repository(ui=self.ui, path=path)
+            self.repo = hg.repository(ui=ui, path=path)
             self.path = self.repo.root
         except RepoError, e:
             self.path = None
