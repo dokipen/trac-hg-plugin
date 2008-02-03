@@ -48,6 +48,7 @@ try:
     from mercurial import hg
     from mercurial.ui import ui
     from mercurial.repo import RepoError
+    from mercurial.revlog import LookupError
     from mercurial.node import hex, short, nullid
     from mercurial.util import pathto, cachefunc
     from mercurial.cmdutil import walkchangerevs
@@ -256,7 +257,7 @@ class MercurialRepository(Repository):
                         pass
                 return self.repo.lookup(rev)
             return self.repo.changelog.tip()
-        except RepoError, e:
+        except (LookupError, RepoError):
             raise NoSuchChangeset(rev)
 
     def hg_display(self, n):
