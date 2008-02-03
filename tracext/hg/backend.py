@@ -85,7 +85,7 @@ if has_property_renderer:
                 chgset = repos.get_changeset(rev)
                 return tag.a(rev, class_="changeset",
                              title=shorten_line(chgset.message),
-                             href=context.href.changeset(rev))
+                             href=context.href.changeset(rev, repos.reponame))
             return tag([tag(link(rev), ', ') for rev in revs[:-1]],
                        link(revs[-1]))
 
@@ -157,21 +157,31 @@ class MercurialConnector(Component):
         yield ('tag', self._format_link)
 
     def _format_link(self, formatter, ns, rev, label):
-        repos = self.env.get_repository()
-        if ns == 'branch':
+        reponame = ''
+        context = formatter.context
+        while context:
+            if context.resource.realm in ('source', 'changeset'):
+                reponame = context.resource.id[0]
+                break
+            context = context.parent
+        repos = self.env.get_repository(reponame)
+        if repos and ns == 'branch':
             for b, head in repos.get_branches(): ## FIXME
                 if b == rev:
                     rev = head
                     break
-        try:
-            chgset = repos.get_changeset(rev)
-            return tag.a(label, class_="changeset",
-                         title=shorten_line(chgset.message),
-                         href=formatter.href.changeset(rev))
-        except NoSuchChangeset, e:
-            return tag.a(label, class_="missing changeset",
-                         title=to_unicode(e), rel="nofollow",
-                         href=formatter.href.changeset(rev))
+        if repos:
+            try:
+                chgset = repos.get_changeset(rev)
+                return tag.a(label, class_="changeset",
+                             title=shorten_line(chgset.message),
+                             href=formatter.href.changeset(rev, reponame))
+            except NoSuchChangeset, e:
+                errmsg = to_unicode(e)
+        else:
+            errmsg = "Repository '%s' not found" % reponame
+        return tag.a(label, class_="missing changeset",
+                     title=errmsg, rel="nofollow")
 
 ### Helpers 
         
