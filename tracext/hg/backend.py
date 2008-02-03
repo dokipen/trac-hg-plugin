@@ -130,17 +130,18 @@ class MercurialConnector(Component):
         if has_mercurial:
             yield ("hg", 8)
 
-    def get_repository(self, type, dir, authname):
+    def get_repository(self, type, dir, repo_options):
         """Return a `MercurialRepository`"""
         if not self._version:
             from mercurial.version import get_version
             self._version = get_version()
             self.env.systeminfo.append(('Mercurial', self._version))
-        if not self.ui:
-            self._setup_ui(self.config.get(type, 'hgrc'))
         options = {}
         for key, val in self.config.options(type):
             options[key] = val
+        options.update(repo_options)
+        if not self.ui:
+            self._setup_ui(options.get('hgrc'))
         return MercurialRepository(dir, self.log, self.ui, options)
 
 
@@ -222,6 +223,7 @@ class MercurialRepository(Repository):
 
     def __init__(self, path, log, ui, options):
         self.ui = ui
+        self.options = options
         # TODO: per repository ui and options?
         if isinstance(path, unicode):
             str_path = path.encode('utf-8')
@@ -657,6 +659,9 @@ class MercurialNode(Node):
     def get_content_type(self):
         if self.isdir:
             return None
+        if 'mq' in self.repos.options:
+            if self.path not in ('.hgignore', 'series'):
+                return 'text/x-diff'
         return ''
 
     def get_last_modified(self):
