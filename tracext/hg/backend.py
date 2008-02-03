@@ -79,9 +79,9 @@ if has_property_renderer:
                     mode == 'revprop') and 4 or 0
         
         def render_property(self, name, mode, context, props):
-            revs = props[name]
+            repos, revs = props[name]
             def link(rev):
-                chgset = context.env.get_repository().get_changeset(rev)
+                chgset = repos.get_changeset(rev)
                 return tag.a(rev, class_="changeset",
                              title=shorten_line(chgset.message),
                              href=context.href.changeset(rev))
@@ -680,15 +680,18 @@ class MercurialChangeset(Changeset):
         self.tags = [t for t in repos.repo.nodetags(n)]
         self.extra = extra
 
+    def get_uid(self):
+        return self.n
+
     if has_property_renderer:
         def get_properties(self):
             properties = {}
             if len(self.parents) > 1:
-                properties['Parents'] = self.parents
+                properties['Parents'] = (self.repos, self.parents)
             if len(self.children) > 1:
-                properties['Children'] = self.children
+                properties['Children'] = (self.repos, self.children)
             if len(self.tags):
-                properties['Tags'] = self.tags
+                properties['Tags'] = (self.repos, self.tags)
             return properties
     else: # remove once 0.11 is released
         def get_properties(self):
