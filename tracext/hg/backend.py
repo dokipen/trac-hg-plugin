@@ -118,7 +118,7 @@ class MercurialConnector(Component):
 
         extensions.loadall(self.ui)
         if hasattr(extensions, 'extensions'):
-            for name, module in exts.extensions():
+            for name, module in extensions.extensions():
                 # setup extensions
                 extsetup = getattr(module, 'extsetup', None)
                 if extsetup:
