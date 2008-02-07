@@ -139,6 +139,8 @@ class MercurialConnector(Component):
         options = {}
         for key, val in self.config.options(type):
             options[key] = val
+        if isinstance(repo_options, basestring): # 0.11 compat
+            repo_options = {'username': repo_options}
         options.update(repo_options)
         if not self.ui:
             self._setup_ui(options.get('hgrc'))
@@ -224,6 +226,7 @@ class MercurialRepository(Repository):
     def __init__(self, path, log, ui, options):
         self.ui = ui
         self.options = options
+        self.reponame = None
         # TODO: per repository ui and options?
         if isinstance(path, unicode):
             str_path = path.encode('utf-8')
