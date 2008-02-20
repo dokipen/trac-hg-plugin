@@ -15,9 +15,6 @@ import time
 import posixpath
 import re
 
-import pkg_resources
-pkg_resources.require('Trac>=0.11dev')
-
 from genshi.builder import tag
 
 from trac.core import *
@@ -432,9 +429,6 @@ class MercurialRepository(Repository):
 #             else:
 #                 expect_deletion = True
 #                 rev = self.previous_rev(rev)
-
-    def sync(self):
-        pass
 
     def get_changes(self, old_path, old_rev, new_path, new_rev,
                     ignore_ancestry=1):
