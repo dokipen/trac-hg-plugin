@@ -295,7 +295,6 @@ class MercurialRepository(Repository):
         if rev is not None: 
             rev = str(rev) 
         return self.hg_display(self.hg_node(rev)) 
-        return self.hg_display(self.hg_node(str(rev)))
 
     def short_rev(self, rev):
         """Return the revision number for the specified rev, in compact form.
