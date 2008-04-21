@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 TracMercurial = 'http://trac.edgewall.org/wiki/TracMercurial',
 
 setup(name='TracMercurial',
-      install_requires='Trac >=0.11dev, ==0.11b1',
+      install_requires='Trac >=0.11multirepos, ==0.11b1',
       description='Mercurial plugin for Trac 0.11',
       keywords='trac scm plugin mercurial hg',
       version='0.11.0.2',

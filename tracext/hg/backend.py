@@ -209,25 +209,26 @@ class MercurialRepository(Repository):
 
     def __init__(self, path, log, ui, options):
         self.ui = ui
-        # TODO: per repository ui and options?
+        fallback_charset = self.config.get('trac', 'default_charset', 'utf-8')
+        # though os.path supports unicode paths on some platforms, hg doesn't
+        str_path = path
         if isinstance(path, unicode):
-            str_path = path.encode('utf-8')
-            if not os.path.exists(str_path):
-                str_path = path.encode('latin-1')
-            path = str_path
+            path_charset = options.get('path_charset', fallback_charset)
+            str_path = path.encode(path_charset)
         try:
-            self.repo = hg.repository(ui=ui, path=path)
+            self.repo = hg.repository(ui=ui, path=str_path)
             self.path = self.repo.root
         except RepoError, e:
             self.path = None
+        if self.path is None:
+            raise TracError(path + ' does not appear to ' \
+                            'contain a Mercurial repository.')
         self._show_rev = True
         if 'show_rev' in options and not options['show_rev'] in TRUE:
             self._show_rev = False
         self._node_fmt = 'node_format' in options \
                          and options['node_format']    # will default to 'short'
-        if self.path is None:
-            raise TracError(path + ' does not appear to ' \
-                            'contain a Mercurial repository.')
+        self.charset = options.get('default_charset', fallback_charset)
         Repository.__init__(self, 'hg:%s' % path, None, log)
 
     def hg_time(self, timeinfo):
@@ -277,6 +278,9 @@ class MercurialRepository(Repository):
 
     def normalize_rev(self, rev):
         """Return the changelog node for the specified rev"""
+        if rev is not None: 
+            rev = str(rev) 
+        return self.hg_display(self.hg_node(rev)) 
         return self.hg_display(self.hg_node(str(rev)))
 
     def short_rev(self, rev):
@@ -499,14 +503,12 @@ class MercurialNode(Node):
         self.mflags = mflags
         if isinstance(path, unicode):
             try:
-                self._init_path(log, path.encode('utf-8'))
-            except NoSuchNode:
-                self._init_path(log, path.encode('latin-1'))
-                # TODO: configurable charset for the repository, i.e. #3809
-        else:
-            self._init_path(log, path)
-
-    def _init_path(self, log, path):
+                path = path.encode(repos.charset)
+            except UnicodeEncodeError:
+                raise NoSuchNode("path '%(path)s' can't be encoded using "
+                                 "'%(charset)s' charset. "
+                                 "Check your configuration" % {
+                                     'path': path, 'charset': repos.charset})
         kind = None
         if path in self.manifest: # then it's a file
             kind = Node.FILE
