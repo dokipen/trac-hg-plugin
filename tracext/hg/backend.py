@@ -308,22 +308,9 @@ class MercurialRepository(Repository):
 
     def get_quickjump_entries(self, rev):
         # branches
-        if hasattr(self.repo, 'branchtags'):
-            # New 0.9.2 style branches, since [hg 028fff46a4ac]
-            for t, n in sorted(self.repo.branchtags().items(), reverse=True,
-                               key=lambda (t, n): self.repo.changelog.rev(n)):
-                yield ('branches', t, '/', self.hg_display(n))
-        else:
-            # Old style branches
-            heads = self.repo.changelog.heads()
-            brinfo = self.repo.branchlookup(heads)
-            for head in heads:
-                rev = self.hg_display(head)
-                if head in brinfo:
-                    branch = ' '.join(brinfo[head])
-                else:
-                    branch = rev
-                yield ('(old-style) branches', branch, '/', rev)
+        for t, n in sorted(self.repo.branchtags().items(), reverse=True,
+                           key=lambda (t, n): self.repo.changelog.rev(n)):
+            yield ('branches', t, '/', self.hg_display(n))
         # heads
         for n in self.repo.heads():
             h = self.hg_display(n)
