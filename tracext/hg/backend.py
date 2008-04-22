@@ -324,6 +324,10 @@ class MercurialRepository(Repository):
                 else:
                     branch = rev
                 yield ('(old-style) branches', branch, '/', rev)
+        # heads
+        for n in self.repo.heads():
+            h = self.hg_display(n)
+            yield ('heads', h, '/', h)
         # tags
         for t, n in reversed(self.repo.tagslist()):
             try:
