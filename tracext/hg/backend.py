@@ -307,18 +307,33 @@ class MercurialRepository(Repository):
         return self.repo.changelog.rev(self.hg_node(rev))
 
     def get_quickjump_entries(self, rev):
+        branches = {}
+        tags = {}
+        branchtags = self.repo.branchtags().items()
+        tagslist = self.repo.tagslist()
+        for b, n in branchtags:
+            branches[n] = b
+        for t, n in tagslist:
+            tags.setdefault(n, []).append(t)
+        def taginfo(n):
+            if n in tags:
+                return ' (%s)' % ', '.join(tags[n])
+            else:
+                return ''
         # branches
-        for t, n in sorted(self.repo.branchtags().items(), reverse=True,
-                           key=lambda (t, n): self.repo.changelog.rev(n)):
-            yield ('branches', t, '/', self.hg_display(n))
+        for b, n in sorted(branchtags, reverse=True, 
+                           key=lambda (b, n): self.repo.changelog.rev(n)):
+            yield ('branches', b + taginfo(n), '/', self.hg_display(n))
         # heads
         for n in self.repo.heads():
-            h = self.hg_display(n)
-            yield ('heads', h, '/', h)
+            if n not in branches:
+                h = self.hg_display(n)
+                yield ('extra heads', h + taginfo(n), '/', h)
         # tags
-        for t, n in reversed(self.repo.tagslist()):
+        for t, n in reversed(tagslist):
             try:
-                yield ('tags', t, '/', self.hg_display(n))
+                yield ('tags', ', '.join(tags.pop(n)), 
+                       '/', self.hg_display(n))
             except KeyError:
                 pass
 
