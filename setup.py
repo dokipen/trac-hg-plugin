@@ -5,10 +5,10 @@ from setuptools import setup, find_packages
 TracMercurial = 'http://trac.edgewall.org/wiki/TracMercurial',
 
 setup(name='TracMercurial',
-      install_requires='Trac >=0.11dev, ==0.11b1',
+      install_requires='Trac >=0.11dev, ==0.11b1, ==0.11rc1',
       description='Mercurial plugin for Trac 0.11',
       keywords='trac scm plugin mercurial hg',
-      version='0.11.0.2',
+      version='0.11.0.3',
       url=TracMercurial,
       license='GPL',
       author='Christian Boos',
