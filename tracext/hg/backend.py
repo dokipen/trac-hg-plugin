@@ -73,7 +73,7 @@ if has_property_renderer:
         implements(IPropertyRenderer)
 
         def match_property(self, name, mode):
-            return (name in ('Parents', 'Children', 'Tags') and
+            return (name in ('Parents', 'Children', 'Tags', 'Branch') and
                     mode == 'revprop') and 4 or 0
         
         def render_property(self, name, mode, context, props):
@@ -699,6 +699,7 @@ class MercurialChangeset(Changeset):
                         if p != nullid]
         self.children = [repos.hg_display(c) for c in log.children(n)]
         self.tags = [t for t in repos.repo.nodetags(n)]
+        self.branch = extra.pop("branch", None) 
         self.extra = extra
 
     def get_uid(self):
@@ -711,8 +712,12 @@ class MercurialChangeset(Changeset):
                 properties['Parents'] = (self.repos, self.parents)
             if len(self.children) > 1:
                 properties['Children'] = (self.repos, self.children)
+            if self.branch:
+                properties['Branch'] = (self.repos, [self.branch])
             if len(self.tags):
                 properties['Tags'] = (self.repos, self.tags)
+            for k, v in self.extra.iteritems():
+                properties[k] = v
             return properties
     else: # remove once 0.11 is released
         def get_properties(self):

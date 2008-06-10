@@ -5,20 +5,20 @@ from setuptools import setup, find_packages
 TracMercurial = 'http://trac.edgewall.org/wiki/TracMercurial',
 
 setup(name='TracMercurial',
-      install_requires='Trac >=0.11dev, ==0.11b1',
-      description='Mercurial plugin for Trac 0.11',
+      install_requires='Trac >=0.12dev',
+      description='Mercurial plugin for Trac 0.12',
       keywords='trac scm plugin mercurial hg',
-      version='0.12.0.1',
+      version='0.12.0.2',
       url=TracMercurial,
       license='GPL',
       author='Christian Boos',
       author_email='cboos@neuf.fr',
       long_description="""
-      This plugin for Trac 0.11 provides support for the Mercurial SCM.
+      This plugin for Trac 0.12 provides support for the Mercurial SCM.
 
-      Actually, to take full benefit of this version of the plugin,
+      '''Actually, to take full benefit of this version of the plugin,
       the http://trac.edgewall.org/browser/sandbox/multirepos branch is
-      required.
+      required.'''
       
       See %s for more details.
       """ % TracMercurial,
