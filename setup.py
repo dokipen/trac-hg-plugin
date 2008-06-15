@@ -23,6 +23,6 @@ setup(name='TracMercurial',
       See %s for more details.
       """ % TracMercurial,
       namespace_packages=['tracext'],
-      packages=['tracext.hg'],
+      packages=['tracext', 'tracext.hg'],
       data_files=['COPYING', 'README'],
       entry_points={'trac.plugins': 'hg = tracext.hg.backend'})
