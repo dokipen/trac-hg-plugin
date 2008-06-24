@@ -155,12 +155,14 @@ class MercurialConnector(Component):
 
     def _format_link(self, formatter, ns, rev, label):
         repos = self.env.get_repository()
-        if ns == 'branch':
-            for b, head in repos.get_branches(): ## FIXME
-                if b == rev:
-                    rev = head
-                    break
         try:
+            if ns == 'branch':
+                for b, n in repos.repo.branchtags().items():
+                    if b == rev:
+                        rev = repos.repo.changelog.rev(n)
+                        break
+                else:
+                    raise NoSuchChangeset(rev)
             chgset = repos.get_changeset(rev)
             return tag.a(label, class_="changeset",
                          title=shorten_line(chgset.message),
