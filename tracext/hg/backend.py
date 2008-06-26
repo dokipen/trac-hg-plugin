@@ -76,6 +76,28 @@ class CsetPropertyRenderer(Component):
             return tag.a(rev, class_="changeset",
                          title=shorten_line(chgset.message),
                          href=context.href.changeset(rev))
+        if name == 'Parents' and len(revs) == 2: # merge
+            new = context.resource.id[1]
+            parent_links = [
+                    (link(rev), ' (',
+                     tag.a('diff', title='Diff against this parent '
+                           '(show the changes merged from the other parents)',
+                           href=context.href.changeset(new, old=rev)), ')')
+                           for rev in revs]
+            return tag([(parent, ', ') for parent in parent_links[:-1]],
+                       parent_links[-1], tag.br(), 
+                       tag.em('Note: this is a ', tag.strong('merge'),
+                                ' changeset, the changes displayed below '
+                                ' correspond to the merge itself.', 
+                                class_='hint'), tag.br(), 
+                       # TODO: only keep chunks present in both parents 
+                       #       (conflicts) or in none (extra changes)
+                       # tag.span('No changes means the merge was clean.',
+                       #         class_='hint'), tag.br(), 
+                       tag.em('Use the ', tag.tt('(diff)'), 
+                                ' links above to see all the '
+                                'changes relative to each parent.', 
+                                class_='hint'))
         return tag([tag(link(rev), ', ') for rev in revs[:-1]],
                    link(revs[-1]))
 
