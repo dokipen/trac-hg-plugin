@@ -44,6 +44,7 @@ try:
         demandimport = None
 
     from mercurial import hg
+    from mercurial.context import filectx
     from mercurial.ui import ui
     from mercurial.repo import RepoError
     from mercurial.revlog import LookupError
@@ -404,14 +405,22 @@ class MercurialRepository(Repository):
     def get_youngest_rev(self):
         return self.hg_display(self.repo.changelog.tip())
 
-    def previous_rev(self, rev):
+    def previous_rev(self, rev): # path better ignored here
         n = self.hg_node(rev)
         log = self.repo.changelog
         for p in log.parents(n):
             return self.hg_display(p) # always follow first parent
     
-    def next_rev(self, rev, path=''): # FIXME: path ignored for now
+    def next_rev(self, rev, path=''):
         n = self.hg_node(rev)
+        if path and len(path): # might be a file
+            fc = filectx(self.repo, path, n)
+            if fc: # it is a file
+                for child_fc in fc.children():
+                    return self.hg_display(child_fc.node())
+                else:
+                    return None
+            # it might be a directory (not supported for now) FIXME
         log = self.repo.changelog
         for c in log.children(n):
             return self.hg_display(c) # always follow first child
@@ -653,7 +662,6 @@ class MercurialNode(Node):
             yield newer
 
     def get_annotations(self):
-        from mercurial.context import filectx
         fctx = filectx(self.repos.repo, self.path, self.n)
         annotations = []
         for fc, line in fctx.annotate(follow=True):
