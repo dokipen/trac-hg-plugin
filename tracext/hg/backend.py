@@ -407,16 +407,14 @@ class MercurialRepository(Repository):
     def previous_rev(self, rev):
         n = self.hg_node(rev)
         log = self.repo.changelog
-        parents = [self.hg_display(p) for p in log.parents(n) if p != nullid]
-        parents.sort()
-        return parents and parents[0] or None
+        for p in log.parents(n):
+            return self.hg_display(p) # always follow first parent
     
-    def next_rev(self, rev, path=''): # NOTE: path ignored for now
+    def next_rev(self, rev, path=''): # FIXME: path ignored for now
         n = self.hg_node(rev)
         log = self.repo.changelog
-        children = [self.hg_display(c) for c in log.children(n)]
-        children.sort()
-        return children and children[0] or None
+        for c in log.children(n):
+            return self.hg_display(c) # always follow first child
     
     def rev_older_than(self, rev1, rev2):
         log = self.repo.changelog
