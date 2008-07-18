@@ -304,7 +304,11 @@ class MercurialRepository(Repository):
         if rev is not None:
             if isinstance(rev, basestring) and rev.isdigit():
                 rev = int(rev)
-            if 0 <= rev < self.repo.changelog.count():
+            if hasattr(self.repo.changelog, 'count'):
+                max_rev = self.repo.changelog.count() # 1.0.1 and below
+            else:
+                max_rev = len(self.repo) # after 1.0.1
+            if 0 <= rev < max_rev:
                 return rev # it was already a short rev
         return self.repo.changelog.rev(self.hg_node(rev))
 
@@ -643,8 +647,12 @@ class MercurialNode(Node):
             if self.mflags: # Mercurial upto 9.1
                 exe = self.mflags[self.path]
             else: # assume Mercurial version >= [abd9a05fca0b]
-                exe = self.manifest.execf(self.path)
-            return exe and {'exe': '*'} or {}
+                if hasattr(self.manifest, 'execf'):
+                    exe = self.manifest.execf(self.path) # 1.0.1 and below 
+                else:
+                    exe = 'x' in self.manifest.flags(self.path) # after 1.0.1
+            if exe:
+                return {'exe': '*'}
         return {}
     # FIXME++: implement pset/pget/plist etc. in hg
     # (hm, extended changelog is about the *changelog*, not the manifest...)
