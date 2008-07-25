@@ -673,19 +673,10 @@ class MercurialNode(Node):
         return annotations
         
     def get_properties(self):
-        if self.isfile:
-            if self.mflags: # Mercurial upto 9.1
-                exe = self.mflags[self.path]
-            else: # assume Mercurial version >= [abd9a05fca0b]
-                if hasattr(self.manifest, 'execf'):
-                    exe = self.manifest.execf(self.path) # 1.0.1 and below 
-                else:
-                    exe = 'x' in self.manifest.flags(self.path) # after 1.0.1
-            if exe:
-                return {'exe': '*'}
-        return {}
-    # FIXME++: implement pset/pget/plist etc. in hg
-    # (hm, extended changelog is about the *changelog*, not the manifest...)
+        if self.isfile and 'x' in self.manifest.flags(self.path):
+            return {'exe': '*'}
+        else:
+            return {}
 
     def get_content_length(self):
         if self.isdir:
