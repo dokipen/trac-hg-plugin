@@ -25,7 +25,7 @@ from trac.util.text import shorten_line, to_unicode
 from trac.versioncontrol.api import Changeset, Node, Repository, \
                                     IRepositoryConnector, \
                                     NoSuchChangeset, NoSuchNode
-from trac.versioncontrol.web_ui import IPropertyRenderer
+from trac.versioncontrol.web_ui import IPropertyRenderer, RenderedProperty
 from trac.wiki import IWikiSyntaxProvider
 
 try:
@@ -100,6 +100,43 @@ class CsetPropertyRenderer(Component):
                                 class_='hint'))
         return tag([tag(link(rev), ', ') for rev in revs[:-1]],
                    link(revs[-1]))
+
+class HgExtPropertyRenderer(Component):
+    implements(IPropertyRenderer)
+
+    def match_property(self, name, mode):
+       return name in ('transplant_source') and \
+                mode == 'revprop' and 4 or 0
+    
+    def render_property(self, name, mode, context, props):
+        repos, value = props[name]
+        if name == 'transplant_source':
+            try:
+                chgset = MercurialChangeset(repos, value)
+                link = tag.a(chgset.rev, class_="changeset",
+                             title=shorten_line(chgset.message),
+                             href=context.href.changeset(short(value))
+            except LookupError:
+                link = tag.a(hex(value), class_="missing changeset",
+                             title="no such changeset", rel="nofollow")
+            return RenderedProperty(name="Transplant:", content=link,
+                                    name_attributes=[("class", "property")])
+
+class HgDefaultPropertyRenderer(Component):
+    implements(IPropertyRenderer)
+
+    def match_property(self, name, mode):
+       return mode == 'revprop' and 1 or 0
+    
+    def render_property(self, name, mode, context, props):
+        repos, value = props[name]
+        try:
+            return unicode(value)
+        except UnicodeDecodeError:
+            if len(value) <= 100:
+                return tag.tt(''.join(("%02x" % ord(c)) for c in value))
+            else:
+                return tag.em('(binary, size greater than 100 bytes)')
 
 
 class MercurialConnector(Component):
@@ -706,7 +743,7 @@ class MercurialChangeset(Changeset):
         if len(self.tags):
             properties['Tags'] = (self.repos, self.tags)
         for k, v in self.extra.iteritems():
-            properties[k] = v
+            properties[k] = (self.repos, v)
         return properties
 
     def get_changes(self):
