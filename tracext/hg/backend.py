@@ -115,7 +115,7 @@ class HgExtPropertyRenderer(Component):
                 chgset = MercurialChangeset(repos, value)
                 link = tag.a(chgset.rev, class_="changeset",
                              title=shorten_line(chgset.message),
-                             href=context.href.changeset(short(value))
+                             href=context.href.changeset(short(value)))
             except LookupError:
                 link = tag.a(hex(value), class_="missing changeset",
                              title="no such changeset", rel="nofollow")
