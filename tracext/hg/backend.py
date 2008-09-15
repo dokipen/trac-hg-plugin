@@ -19,7 +19,6 @@ from genshi.builder import tag
 
 from trac.core import *
 from trac.config import _TRUE_VALUES as TRUE
-from trac.util.compat import sorted, reversed
 from trac.util.datefmt import utc
 from trac.util.text import shorten_line, to_unicode
 from trac.versioncontrol.api import Changeset, Node, Repository, \
