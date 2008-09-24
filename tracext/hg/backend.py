@@ -77,7 +77,7 @@ class CsetPropertyRenderer(Component):
                          title=shorten_line(chgset.message),
                          href=context.href.changeset(rev))
         if name == 'Parents' and len(revs) == 2: # merge
-            new = context.resource.id[1]
+            new = context.resource.id
             parent_links = [
                     (link(rev), ' (',
                      tag.a('diff', title='Diff against this parent '
