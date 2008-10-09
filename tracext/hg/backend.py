@@ -28,6 +28,7 @@ from trac.versioncontrol.api import Changeset, Node, Repository, \
 from trac.versioncontrol.web_ui import IPropertyRenderer, RenderedProperty
 from trac.wiki import IWikiSyntaxProvider
 
+hg_import_error = []
 try:
     # The new `demandimport` mechanism doesn't play well with code relying
     # on the `ImportError` exception being caught.
@@ -40,10 +41,11 @@ try:
     try:
         from mercurial import demandimport
         demandimport.enable();
-    except ImportError:
+    except ImportError, hg_import_error:
         demandimport = None
 
     from mercurial import hg
+    from mercurial.hg import repository
     from mercurial.ui import ui
     from mercurial.repo import RepoError
     from mercurial.revlog import LookupError
@@ -51,13 +53,22 @@ try:
     from mercurial.util import pathto, cachefunc
     from mercurial.cmdutil import walkchangerevs
     from mercurial import extensions
+    from mercurial.extensions import loadall
 
+    # Note: due to the nature of demandimport, there will be no actual 
+    # import error until those symbols get accessed, so here we go:
+    for sym in ("repository ui RepoError LookupError hex short nullid pathto "
+                "cachefunc walkchangerevs loadall".split()):
+        if repr(globals()[sym]) == "<unloaded module '%s'>" % sym:
+            hg_import_error.append(sym)
+    if hg_import_error:
+        hg_import_error = "Couldn't import symbols: "+','.join(hg_import_error)
+    
     if demandimport:
         demandimport.disable();
     
-    has_mercurial = True
-except ImportError:
-    has_mercurial = False
+except ImportError, e:
+    hg_import_error = e
     ui = object
 
 ### Components
@@ -175,8 +186,14 @@ class MercurialConnector(Component):
 
     def get_supported_types(self):
         """Support for `repository_type = hg`"""
-        global has_mercurial
-        if has_mercurial:
+        global hg_import_error
+        if hg_import_error:
+            self.error = hg_import_error
+            import pkg_resources
+            trac_dist = pkg_resources.get_distribution('Trac')
+            if trac_dist.parsed_version >= ('00000000', '00000011', '00000001'):
+                yield ("hg", -1)
+        else:
             yield ("hg", 8)
 
     def get_repository(self, type, dir, authname):
