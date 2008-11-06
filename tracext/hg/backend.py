@@ -191,8 +191,13 @@ class MercurialConnector(Component):
             self.error = hg_import_error
             import pkg_resources
             trac_dist = pkg_resources.get_distribution('Trac')
-            if trac_dist.parsed_version >= ('00000000', '00000011', '00000001'):
+            version = trac_dist.parsed_version 
+            # for detailed error reporting, we need 0.11.1 or 
+            # 0.11-stable starting from r7435
+            if version >= ('00000000', '00000011', '00000001') or \
+                    (version[2] == '*stable' and version[5] >= 7435):
                 yield ("hg", -1)
+            # otherwise, old-style "missing bindings" error will be reported
         else:
             yield ("hg", 8)
 
