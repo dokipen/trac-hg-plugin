@@ -96,24 +96,25 @@ class CsetPropertyRenderer(Component):
             new = context.resource.id[1]
             parent_links = [
                     (link(rev), ' (',
-                     tag.a('diff', title='Diff against this parent '
-                           '(show the changes merged from the other parents)',
+                     tag.a('diff', title=_("Diff against this parent "
+                           "(show the changes merged from the other parents)"),
                            href=context.href.changeset(new, repos.reponame, 
                                                        old=rev)), ')')
                            for rev in revs]
             return tag([(parent, ', ') for parent in parent_links[:-1]],
                        parent_links[-1], tag.br(),
-                       tag.span('Note: this is a ', tag.strong('merge'),
-                                ' changeset, the changes displayed below '
-                                ' correspond to the merge itself.', 
+                       tag.span(tag_("Note: this is a %(merge)s changeset, "
+                                     "the changes displayed below correspond "
+                                     "to the merge itself.",
+                                     merge=tag.strong('merge')),
                                 class_='hint'), tag.br(), 
                        # TODO: only keep chunks present in both parents 
                        #       (conflicts) or in none (extra changes)
                        # tag.span('No changes means the merge was clean.',
                        #         class_='hint'), tag.br(), 
-                       tag.span('Use the ', tag.tt('(diff)'), 
-                                ' links above to see all the '
-                                'changes relative to each parent.', 
+                       tag.span(tag_("Use the %(diff)s links above to see all "
+                                     "the changes relative to each parent.",
+                                     diff=tag.tt('(diff)')),
                                 class_='hint'))
         return tag([tag(link(rev), ', ') for rev in revs[:-1]],
                    link(revs[-1]))
@@ -136,8 +137,8 @@ class HgExtPropertyRenderer(Component):
                                                          repos.reponame))
             except LookupError:
                 link = tag.a(hex(value), class_="missing changeset",
-                             title="no such changeset", rel="nofollow")
-            return RenderedProperty(name="Transplant:", content=link,
+                             title=_("no such changeset"), rel="nofollow")
+            return RenderedProperty(name=_("Transplant:"), content=link,
                                     name_attributes=[("class", "property")])
 
 class HgDefaultPropertyRenderer(Component):
@@ -154,7 +155,7 @@ class HgDefaultPropertyRenderer(Component):
             if len(value) <= 100:
                 return tag.tt(''.join(("%02x" % ord(c)) for c in value))
             else:
-                return tag.em('(binary, size greater than 100 bytes)')
+                return tag.em(_("(binary, size greater than 100 bytes)"))
 
 
 class MercurialConnector(Component):
@@ -256,7 +257,7 @@ class MercurialConnector(Component):
             except NoSuchChangeset, e:
                 errmsg = to_unicode(e)
         else:
-            errmsg = "Repository '%s' not found" % reponame
+            errmsg = _("Repository '%(repo)s' not found", repo=reponame)
         return tag.a(label, class_="missing changeset",
                      title=errmsg, rel="nofollow")
 
@@ -318,8 +319,8 @@ class MercurialRepository(Repository):
         self._node_fmt = 'node_format' in options \
                          and options['node_format']    # will default to 'short'
         if self.path is None:
-            raise TracError(path + ' does not appear to ' \
-                            'contain a Mercurial repository.')
+            raise TracError(_("%(path)s does not appear to contain a Mercurial"
+                              " repository.", path=path))
         Repository.__init__(self, 'hg:%s' % path, None, log)
 
     def hg_time(self, timeinfo):
@@ -546,10 +547,12 @@ class MercurialRepository(Repository):
             raise NoSuchNode(new_path, new_rev, 'The Target for Diff is invalid')
         # check kind, both should be same.
         if new_node.kind != old_node.kind:
-            raise TracError('Diff mismatch: Base is a %s (%s in revision %s) '
-                            'and Target is a %s (%s in revision %s).' \
-                            % (old_node.kind, old_path, old_rev,
-                               new_node.kind, new_path, new_rev))
+            raise TracError(
+                _("Diff mismatch: "
+                  "Base is a %(okind)s (%(opath)s in revision %(orev)s) "
+                  "and Target is a %(nkind)s (%(npath)s in revision %(nrev)s).",
+                  okind=old_node.kind, opath=old_path, orev=old_rev,
+                  nkind=new_node.kind, npath=new_path, nrev=new_rev))
         # Correct change info from changelog(revlog)
         # Finding changes between two revs requires tracking back
         # several routes.
@@ -669,7 +672,8 @@ class MercurialNode(Node):
 
     def read(self, size=None):
         if self.isdir:
-            return TracError("Can't read from directory %s" % self.path)
+            return TracError(_("Can't read from directory %(path)s", 
+                               path=self.path))
         if self.data is None:
             self.data = self.file.read(self.file_n)
             self.pos = 0
@@ -789,13 +793,13 @@ class MercurialChangeset(Changeset):
     def get_properties(self):
         properties = {}
         if len(self.parents) > 1:
-            properties['Parents'] = (self.repos, self.parents)
+            properties[N_('Parents')] = (self.repos, self.parents)
         if len(self.children) > 1:
-            properties['Children'] = (self.repos, self.children)
+            properties[N_('Children')] = (self.repos, self.children)
         if self.branch:
-            properties['Branch'] = (self.repos, [self.branch])
+            properties[N_('Branch')] = (self.repos, [self.branch])
         if len(self.tags):
-            properties['Tags'] = (self.repos, self.tags)
+            properties[N_('Tags')] = (self.repos, self.tags)
         for k, v in self.extra.iteritems():
             properties[k] = (self.repos, v)
         return properties
