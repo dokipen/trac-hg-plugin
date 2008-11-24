@@ -23,15 +23,20 @@ from trac.core import *
 from trac.config import _TRUE_VALUES as TRUE
 from trac.util.datefmt import utc
 from trac.util.text import shorten_line, to_unicode
-from trac.util.translation import domain_functions
 from trac.versioncontrol.api import Changeset, Node, Repository, \
                                     IRepositoryConnector, \
                                     NoSuchChangeset, NoSuchNode
 from trac.versioncontrol.web_ui import IPropertyRenderer, RenderedProperty
 from trac.wiki import IWikiSyntaxProvider
 
-_, tag_, N_, add_domain = domain_functions('tracmercurial', 
+try:
+    from trac.util.translation import domain_functions
+    _, tag_, N_, add_domain = domain_functions('tracmercurial', 
     '_', 'tag_', 'N_', 'add_domain')
+except ImportError:
+    from trac.util.translation import _, tag_, N_
+    def add_domain(a,b): 
+        pass
 
 hg_import_error = []
 try:
