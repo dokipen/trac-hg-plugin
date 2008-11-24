@@ -15,17 +15,23 @@ import time
 import posixpath
 import re
 
+import pkg_resources
+
 from genshi.builder import tag
 
 from trac.core import *
 from trac.config import _TRUE_VALUES as TRUE
 from trac.util.datefmt import utc
 from trac.util.text import shorten_line, to_unicode
+from trac.util.translation import domain_functions
 from trac.versioncontrol.api import Changeset, Node, Repository, \
                                     IRepositoryConnector, \
                                     NoSuchChangeset, NoSuchNode
 from trac.versioncontrol.web_ui import IPropertyRenderer, RenderedProperty
 from trac.wiki import IWikiSyntaxProvider
+
+_, tag_, N_, add_domain = domain_functions('tracmercurial', 
+    '_', 'tag_', 'N_', 'add_domain')
 
 hg_import_error = []
 try:
@@ -158,6 +164,8 @@ class MercurialConnector(Component):
     def __init__(self):
         self._version = None
         self.ui = None
+        locale_dir = pkg_resources.resource_filename(__name__, '../locale')
+        add_domain(self.env.path, locale_dir)
 
     def _setup_ui(self, hgrc_path):
         self.ui = trac_ui(self.log)

@@ -2,13 +2,25 @@
 
 from setuptools import setup, find_packages
 
+extra = {}
+
+try:
+    import babel
+    extra['message_extractors'] = {
+        'tracext': [
+            ('**.py',                'python', None),
+        ],
+    }
+except ImportError:
+    pass
+    
 TracMercurial = 'http://trac.edgewall.org/wiki/TracMercurial'
 
 setup(name='TracMercurial',
-      install_requires='Trac >=0.12multirepos',
+      install_requires='Trac >=0.12dev',
       description='Mercurial plugin for Trac 0.12',
       keywords='trac scm plugin mercurial hg',
-      version='0.12.0.3dev',
+      version='0.12.0.4',
       url=TracMercurial,
       license='GPL',
       author='Christian Boos',
@@ -25,4 +37,5 @@ setup(name='TracMercurial',
       namespace_packages=['tracext'],
       packages=['tracext', 'tracext.hg'],
       data_files=['COPYING', 'README'],
-      entry_points={'trac.plugins': 'hg = tracext.hg.backend'})
+      entry_points={'trac.plugins': 'hg = tracext.hg.backend'},
+      **extra)
