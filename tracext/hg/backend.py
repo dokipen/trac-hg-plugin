@@ -602,6 +602,8 @@ class MercurialNode(Node):
     retrieving revision information for directory is much slower than
     for files.
     """
+    
+    filectx = None
 
     def __init__(self, repos, path, n, manifest=None, mflags=None):
         self.repos = repos
@@ -628,9 +630,8 @@ class MercurialNode(Node):
         kind = None
         if path in self.manifest: # then it's a file
             kind = Node.FILE
-            self.file_n = self.manifest[path]
-            self.file = self.repos.repo.file(path)
-            log_rev = self.file.linkrev(self.file_n)
+            self.filectx = self.repos.repo.filectx(path, self.n)
+            log_rev = self.filectx.linkrev()
             node = log.node(log_rev)
         else: # it will be a directory if there are matching entries
             dir = path and path+'/' or ''
@@ -641,8 +642,10 @@ class MercurialNode(Node):
                     entry = file[len(dir):].split('/', 1)[0]
                     entries[entry] = 1
                     if path: # small optimization: we skip this for root node
-                        file_n = self.manifest[file]
-                        log_rev = self.repos.repo.file(file).linkrev(file_n)
+                        # FIXME: this is actually the performance killer 
+                        #        as noted on #7746:
+                        fctx = self.repos.repo.filectx(file, self.n)
+                        log_rev = fctx.linkrev()
                         newest = max(log_rev, newest)
             if entries:
                 kind = Node.DIRECTORY
@@ -680,7 +683,7 @@ class MercurialNode(Node):
             return TracError(_("Can't read from directory %(path)s", 
                                path=self.path))
         if self.data is None:
-            self.data = self.file.read(self.file_n)
+            self.data = self.filectx.data()
             self.pos = 0
         if size:
             prev_pos = self.pos
@@ -720,8 +723,9 @@ class MercurialNode(Node):
             return
         # file history
         # FIXME: COPY currently unsupported        
-        for file_rev in xrange(self.file.rev(self.file_n), -1, -1):
-            rev = log.node(self.file.linkrev(self.file.node(file_rev)))
+        for file_rev in xrange(self.filectx.filerev(), -1, -1):
+            file_node = self.filectx.filelog().node(file_rev)
+            rev = log.node(self.filectx.filectx(file_node).linkrev())
             older = (self.path, self.repos.hg_display(rev), Changeset.ADD)
             if newer:
                 change = newer[0] == older[0] and Changeset.EDIT or \
@@ -733,10 +737,10 @@ class MercurialNode(Node):
             yield newer
 
     def get_annotations(self):
-        fctx = filectx(self.repos.repo, self.path, self.n)
         annotations = []
-        for fc, line in fctx.annotate(follow=True):
-            annotations.append(fc.rev())
+        if self.filectx:
+            for fc, line in self.filectx.annotate(follow=True):
+                annotations.append(fc.rev())
         return annotations
         
     def get_properties(self):
@@ -748,8 +752,7 @@ class MercurialNode(Node):
     def get_content_length(self):
         if self.isdir:
             return None
-        # since 441ea218414e, i.e. shortly after 0.8.1
-        return self.file.size(self.file.rev(self.file_n))
+        return self.filectx.size()
 
     def get_content_type(self):
         if self.isdir:
