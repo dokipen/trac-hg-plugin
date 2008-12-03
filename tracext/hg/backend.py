@@ -605,7 +605,7 @@ class MercurialNode(Node):
     
     filectx = None
 
-    def __init__(self, repos, path, n, manifest=None, mflags=None):
+    def __init__(self, repos, path, n, manifest=None, dirnode=None):
         self.repos = repos
         self.n = n
         log = repos.repo.changelog
@@ -613,10 +613,9 @@ class MercurialNode(Node):
         if not manifest:
             manifest_n = log.read(n)[0] # 0: manifest node
             manifest = repos.repo.manifest.read(manifest_n)
-            if hasattr(repos.repo.manifest, 'readflags'):
-                mflags = repos.repo.manifest.readflags(manifest_n)
         self.manifest = manifest
-        self.mflags = mflags
+        self._dirnode = dirnode
+
         if isinstance(path, unicode):
             try:
                 self._init_path(log, path.encode('utf-8'))
@@ -625,6 +624,23 @@ class MercurialNode(Node):
                 # TODO: configurable charset for the repository, i.e. #3809
         else:
             self._init_path(log, path)
+
+    def findnode(self, n_rev, dirnames):
+        dirnodes = {}
+        log = self.repos.repo.changelog
+        for rev in xrange(n_rev, -1, -1):
+            for f in self.repos.repo.changectx(rev).files():
+                for d in dirnames[:]:
+                    if f.startswith(d):
+                        dirnodes[d] = log.node(rev)
+                        dirnames.remove(d)
+                        if not dirnames: # if nothing left to find
+                            return dirnodes
+        # FIXME if we get here, the manifest contained a file which was not found 
+        #       in any changelog. This can't normally happen, but we may later on
+        #       introduce a ''cut-off'' value for not going through the whole history
+        #       and only return what we got so far
+        return dirnodes
 
     def _init_path(self, log, path):
         kind = None
@@ -636,23 +652,21 @@ class MercurialNode(Node):
         else: # it will be a directory if there are matching entries
             dir = path and path+'/' or ''
             entries = {}
-            newest = -1
             for file in self.manifest.keys():
                 if file.startswith(dir):
                     entry = file[len(dir):].split('/', 1)[0]
                     entries[entry] = 1
-                    if path: # small optimization: we skip this for root node
-                        # FIXME: this is actually the performance killer 
-                        #        as noted on #7746:
-                        fctx = self.repos.repo.filectx(file, self.n)
-                        log_rev = fctx.linkrev()
-                        newest = max(log_rev, newest)
             if entries:
                 kind = Node.DIRECTORY
                 self.entries = entries.keys()
-                if newest >= 0:
-                    node = log.node(newest)
-                else: # ... as it's the youngest anyway
+                if path: # small optimization: we skip this for root node
+                    if self._dirnode:
+                        # big optimization, the node was precomputed in parent
+                        node = self._dirnode
+                    else:
+                        # we find the most recent change for a file below dir
+                        node = self.findnode(log.rev(self.n), [dir,] ).values()[0]
+                else:
                     node = log.tip()
         if not kind:
             if log.tip() == nullid: # empty repository
@@ -666,11 +680,12 @@ class MercurialNode(Node):
         Node.__init__(self, path, rev, kind)
         self.created_path = path
         self.created_rev = rev
+        self.node = node
         self.data = None
 
-    def subnode(self, p):
+    def subnode(self, p, dirnode=None):
         """Return a node with the same revision information but another path"""
-        return MercurialNode(self.repos, p, self.n, self.manifest, self.mflags)
+        return MercurialNode(self.repos, p, self.n, self.manifest, dirnode)
 
     def get_content(self):
         if self.isdir:
@@ -694,10 +709,29 @@ class MercurialNode(Node):
     def get_entries(self):
         if self.isfile:
             return
+        
+        log = self.repos.repo.changelog
+
+        # dirnames are entries which are sub-directories
+        dirnames = []
         for entry in self.entries:
             if self.path:
                 entry = posixpath.join(self.path, entry)
-            yield self.subnode(entry)
+            if not entry in self.manifest:
+                dirnames.append(entry + '/')
+
+        # pre-computing the node for each sub-directory
+        if dirnames:
+            n_rev = log.rev(self.n)
+            node_rev = log.rev(self.node)
+            dirnodes = self.findnode((n_rev > node_rev) and node_rev or n_rev, dirnames)
+        else:
+            dirnodes = {}
+
+        for entry in self.entries:
+            if self.path:
+                entry = posixpath.join(self.path, entry)
+            yield self.subnode(entry, dirnodes.get(entry+"/", None))
 
     def get_history(self, limit=None):
         newer = None # 'newer' is the previously seen history tuple
