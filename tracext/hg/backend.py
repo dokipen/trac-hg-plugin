@@ -31,10 +31,10 @@ from trac.wiki import IWikiSyntaxProvider
 
 try:
     from trac.util.translation import domain_functions
-    _, tag_, N_, add_domain = domain_functions('tracmercurial', 
-    '_', 'tag_', 'N_', 'add_domain')
+    gettext, _, tag_, N_, add_domain = domain_functions('tracmercurial', 
+    'gettext', '_', 'tag_', 'N_', 'add_domain')
 except ImportError:
-    from trac.util.translation import _, tag_, N_
+    from trac.util.translation import _, tag_, N_, gettext
     def add_domain(a,b): 
         pass
 
@@ -91,6 +91,11 @@ class CsetPropertyRenderer(Component):
                 mode == 'revprop') and 4 or 0
     
     def render_property(self, name, mode, context, props):
+        return RenderedProperty(name=gettext(name+':'), 
+                name_attributes=[("class", "property")],
+                content=self._render_property(name, mode, context, props))
+
+    def _render_property(self, name, mode, context, props):
         repos, revs = props[name]
         def link(rev):
             chgset = repos.get_changeset(rev)
@@ -832,16 +837,20 @@ class MercurialChangeset(Changeset):
     def get_uid(self):
         return self.n
 
+    hg_properties = [
+        N_("Parents:"), N_("Children:"), N_("Branch:"), N_("Tags:")
+    ]
+
     def get_properties(self):
         properties = {}
         if len(self.parents) > 1:
-            properties[N_('Parents')] = (self.repos, self.parents)
+            properties['Parents'] = (self.repos, self.parents)
         if len(self.children) > 1:
-            properties[N_('Children')] = (self.repos, self.children)
+            properties['Children'] = (self.repos, self.children)
         if self.branch:
-            properties[N_('Branch')] = (self.repos, [self.branch])
+            properties['Branch'] = (self.repos, [self.branch])
         if len(self.tags):
-            properties[N_('Tags')] = (self.repos, self.tags)
+            properties['Tags'] = (self.repos, self.tags)
         for k, v in self.extra.iteritems():
             properties[k] = (self.repos, v)
         return properties

@@ -9,8 +9,8 @@ msgstr ""
 "Project-Id-Version: TracMercurial 0.12.0.4\n"
 "Report-Msgid-Bugs-To: cboos@neuf.fr\n"
 "POT-Creation-Date: 2008-11-13 12:33+0100\n"
-"PO-Revision-Date: 2008-11-13 16:32+0100\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2008-12-07 23:39+0100\n"
+"Last-Translator: Christian Boos <cboos@neuf.fr>\n"
 "Language-Team: fr_FR <LL@li.org>\n"
 "Plural-Forms: nplurals=2; plural=(n > 1)\n"
 "MIME-Version: 1.0\n"
@@ -19,16 +19,16 @@ msgstr ""
 "Generated-By: Babel 0.9.4\n"
 
 #: tracext/hg/backend.py:94
-msgid "Timeline"
-msgstr "Ligne de temps"
+msgid ":"
+msgstr ""
 
-#: tracext/hg/backend.py:95
+#: tracext/hg/backend.py:109
 msgid "Diff against this parent (show the changes merged from the other parents)"
 msgstr ""
 "Différences vis-à-vis de ce parent (montre les changements apportés par "
 "les autres parents)"
 
-#: tracext/hg/backend.py:105
+#: tracext/hg/backend.py:119
 #, python-format
 msgid ""
 "Note: this is a %(merge)s changeset, the changes displayed below "
@@ -37,76 +37,65 @@ msgstr ""
 "Note: ceci est un changeset de type %(merge)s, les modifications ci-"
 "dessous correspondent au merge lui-même."
 
-#: tracext/hg/backend.py:113
+#: tracext/hg/backend.py:127
 #, python-format
 msgid ""
 "Use the %(diff)s links above to see all the changes relative to each "
 "parent."
 msgstr ""
+"Utilisez les liens %(diff)s ci-dessus pour voir les modifications "
+"relatives à chaque parent."
 
-#: tracext/hg/backend.py:136
+#: tracext/hg/backend.py:150
 msgid "no such changeset"
-msgstr ""
+msgstr "pas de révision\""
 
-#: tracext/hg/backend.py:137
+#: tracext/hg/backend.py:151
 msgid "Transplant:"
 msgstr ""
 
-#: tracext/hg/backend.py:154
+#: tracext/hg/backend.py:168
 msgid "(binary, size greater than 100 bytes)"
-msgstr ""
+msgstr "(binaire, taille supérieure à 100 octets)"
 
-#: tracext/hg/backend.py:255
+#: tracext/hg/backend.py:270
 #, python-format
 msgid "Repository '%(repo)s' not found"
-msgstr ""
+msgstr "Dépôt '%(repo)s' non trouvé"
 
-#: tracext/hg/backend.py:317
+#: tracext/hg/backend.py:332
 #, python-format
 msgid "%(path)s does not appear to contain a Mercurial repository."
-msgstr ""
+msgstr "%(path)s ne semble pas contenir un dépôt Mercurial"
 
-#: tracext/hg/backend.py:546
+#: tracext/hg/backend.py:561
 #, python-format
 msgid ""
 "Diff mismatch: Base is a %(okind)s (%(opath)s in revision %(orev)s) and "
 "Target is a %(nkind)s (%(npath)s in revision %(nrev)s)."
 msgstr ""
+"Différences incompatibles : Source est un %(okind)s (%(opath)s dans la "
+"révision %(orev)s) et Destination est un %(nkind)s (%(npath)s dans la "
+"révision %(nrev)s)."
 
-#: tracext/hg/backend.py:670
+#: tracext/hg/backend.py:703
 #, python-format
 msgid "Can't read from directory %(path)s"
-msgstr ""
+msgstr "Lecture du répertoire %(path)s impossible"
 
-#: tracext/hg/backend.py:791
-msgid "Parents"
-msgstr ""
+#: tracext/hg/backend.py:841
+msgid "Parents:"
+msgstr "Ascendants :"
 
-#: tracext/hg/backend.py:793
-msgid "Children"
-msgstr ""
+#: tracext/hg/backend.py:841
+msgid "Children:"
+msgstr "Descendants :"
 
-#: tracext/hg/backend.py:795
-msgid "Branch"
-msgstr ""
+#: tracext/hg/backend.py:841
+msgid "Branch:"
+msgstr "Branche :"
 
-#: tracext/hg/backend.py:797
-msgid "Tags"
-msgstr ""
-
-#: tracext/hg/macros.py:68
-msgid "No Mercurial Queue in this repository"
-msgstr ""
-
-#: tracext/hg/macros.py:82
-msgid "No patch name given"
-msgstr ""
-
-#: tracext/hg/macros.py:90
-msgid "No patch named '%(patchname)' found."
-msgstr ""
-
-#: tracext/hg/macros.py:137
-msgid "Plain Text"
+#: tracext/hg/backend.py:841
+msgid "Tags:"
 msgstr ""
 
