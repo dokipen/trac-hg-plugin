@@ -45,10 +45,7 @@ try:
         demandimport = None
 
     from mercurial import hg
-    from mercurial.hg import repository
     from mercurial.ui import ui
-    from mercurial.repo import RepoError
-    from mercurial.revlog import LookupError
     from mercurial.node import hex, short, nullid
     from mercurial.util import pathto, cachefunc
     from mercurial.cmdutil import walkchangerevs
@@ -57,12 +54,18 @@ try:
 
     # Note: due to the nature of demandimport, there will be no actual 
     # import error until those symbols get accessed, so here we go:
-    for sym in ("repository ui RepoError LookupError hex short nullid pathto "
+    for sym in ("ui hex short nullid pathto "
                 "cachefunc walkchangerevs loadall".split()):
         if repr(globals()[sym]) == "<unloaded module '%s'>" % sym:
             hg_import_error.append(sym)
     if hg_import_error:
         hg_import_error = "Couldn't import symbols: "+','.join(hg_import_error)
+
+    # Mercurial versions >= 1.2 won't have mercurial.repo.RepoError anymore
+    from mercurial.repo import RepoError
+    from mercurial.revlog import LookupError
+    if repr(RepoError) == "<unloaded module 'RepoError'>":
+        from mercurial.error import RepoError, LookupError
     
     if demandimport:
         demandimport.disable();
