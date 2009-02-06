@@ -848,9 +848,9 @@ class MercurialChangeset(Changeset):
             if not action:
                 rename_info = repo.file(f).renamed(manifest[f])
                 if rename_info:
-                    base_path = rename_info[0]
-                    linkedrev = repo.file(base_path).linkrev(rename_info[1])
-                    base_rev = self.repos.hg_display(log.node(linkedrev))
+                    base_path, base_filenode = rename_info
+                    base_ctx = repo.filectx(base_path, fileid=base_filenode)
+                    base_rev = self.repos.hg_display(base_ctx.node())
                     if base_path in deletions:
                         action = Changeset.MOVE
                         renames[base_path] = f
