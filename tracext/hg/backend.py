@@ -220,8 +220,12 @@ class MercurialConnector(Component):
     def get_repository(self, type, dir, repo_options):
         """Return a `MercurialRepository`"""
         if not self._version:
-            from mercurial.version import get_version
-            self._version = get_version()
+            try:
+                from mercurial.version import get_version
+                self._version = get_version()
+            except ImportError: # gone in Mercurial 1.2 (hg:9626819b2e3d)
+                from mercurial.util import version
+                self._version = version()
             self.env.systeminfo.append(('Mercurial', self._version))
         options = {}
         for key, val in self.config.options(type):
