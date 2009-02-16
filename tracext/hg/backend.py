@@ -179,7 +179,7 @@ class MercurialConnector(Component):
     def __init__(self):
         self._version = None
         self.ui = None
-        locale_dir = pkg_resources.resource_filename('tracext', 'locale')
+        locale_dir = pkg_resources.resource_filename(__name__, 'locale')
         add_domain(self.env.path, locale_dir)
 
     def _setup_ui(self, hgrc_path):
