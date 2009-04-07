@@ -148,7 +148,7 @@ class HgDefaultPropertyRenderer(Component):
             return unicode(value)
         except UnicodeDecodeError:
             if len(value) <= 100:
-                return tag.tt(''.join(("%02x" % ord(c)) for c in value))
+                return tag.tt(''.join([("%02x" % ord(c)) for c in value]))
             else:
                 return tag.em('(binary, size greater than 100 bytes)')
 
