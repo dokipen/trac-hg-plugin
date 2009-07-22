@@ -257,9 +257,8 @@ class MercurialConnector(Component):
         
 class trac_ui(ui):
     def __init__(self, log, *args, **kwargs):
-        kwargs = kwargs.copy()
-        kwargs['interactive'] = False
-        ui.__init__(self, *args, **kwargs)
+        ui.__init__(self, *args)
+        self.setconfig('ui', 'interactive', 'off')
         self.log = log
         
     def write(self, *args):
