@@ -437,7 +437,6 @@ class MercurialRepository(Repository):
                 pass
 
     def get_path_url(self, path, rev):
-        self.log.info("get_path_url %s %s", path, rev)
         url = self.options.get('url')
         if url and (not path or path == '/'):
             if not rev:
