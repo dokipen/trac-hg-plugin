@@ -436,6 +436,14 @@ class MercurialRepository(Repository):
             except KeyError:
                 pass
 
+    def get_path_url(self, path, rev):
+        url = self.options['url']
+        if url:
+            if not path or path == '/':
+                return url
+            rev = rev is not None and short(self.hg_node(rev)) or 'tip'
+            return posixpath.join(url, 'file', rev, path)
+  
     def get_changeset(self, rev):
         return MercurialChangeset(self, self.hg_node(unicode(rev)))
 
