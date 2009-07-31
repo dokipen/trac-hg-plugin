@@ -437,12 +437,20 @@ class MercurialRepository(Repository):
                 pass
 
     def get_path_url(self, path, rev):
-        url = self.options['url']
-        if url:
-            if not path or path == '/':
+        self.log.info("get_path_url %s %s", path, rev)
+        url = self.options.get('url')
+        if url and (not path or path == '/'):
+            if not rev:
                 return url
-            rev = rev is not None and short(self.hg_node(rev)) or 'tip'
-            return posixpath.join(url, 'file', rev, path)
+            n = self.hg_node(rev)
+            branch = self.repo[n].branch()
+            if branch == 'default':
+                return url
+            return url + '#' + branch # URL for cloning that branch
+
+            # Note: link to matching location in Mercurial's file browser 
+            #rev = rev is not None and short(n) or 'tip'
+            #return '/'.join([url, 'file', rev, path])
   
     def get_changeset(self, rev):
         return MercurialChangeset(self, self.hg_node(unicode(rev)))
