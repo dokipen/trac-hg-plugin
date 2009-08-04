@@ -746,11 +746,27 @@ class MercurialNode(Node):
         if self.path:
             pats.append('path:' + self.path)
         opts = {'rev': ['%s:0' % hex(self.n)]}
+        if self.isfile:
+            opts['follow'] = True
+            fncache = {}
         chgiter, matchfn = walkchangerevs(self.repos.ui, repo, pats, get, opts)
+        # keep one lookahead entry so that we can detect renames
+        path = self.path
+        entry = None
         for st, rev, fns in chgiter:
-            if st == 'iter':
+            if st == 'add' and self.isfile:
+                fncache[rev] = fns[0]
+            elif st == 'iter':
+                if self.isfile and entry:
+                    path = fncache[rev]
+                    if path != entry[0]:
+                        entry = entry[0:2] + (Changeset.COPY,)
+                if entry:
+                    yield entry
                 n = repo.changelog.node(rev)
-                yield (self.path, self.repos.hg_display(n), Changeset.EDIT)
+                entry = (path, self.repos.hg_display(n), Changeset.EDIT)
+        if entry:
+            yield entry
 
     def get_annotations(self):
         annotations = []
