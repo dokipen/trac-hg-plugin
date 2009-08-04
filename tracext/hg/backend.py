@@ -334,7 +334,7 @@ class MercurialRepository(Repository):
         if 'show_rev' in options and not options['show_rev'] in TRUE:
             self._show_rev = False
         self._node_fmt = 'node_format' in options \
-                         and options['node_format']    # will default to 'short'
+                         and options['node_format']   # will default to 'short'
         if self.path is None:
             raise TracError(_("%(path)s does not appear to contain a Mercurial"
                               " repository.", path=path))
@@ -370,7 +370,8 @@ class MercurialRepository(Repository):
     def hg_display(self, n):
         """Return user-readable revision information for node `n`.
 
-        The specific format depends on the `node_format` and `show_rev` options
+        The specific format depends on the `node_format` and `show_rev`
+        options.
         """
         nodestr = self._node_fmt == "hex" and hex(n) or short(n)
         if self._show_rev:
@@ -495,7 +496,8 @@ class MercurialRepository(Repository):
                     seeds.append(p)
 
     def get_node(self, path, rev=None):
-        return MercurialNode(self, self.normalize_path(path), self.hg_node(rev))
+        return MercurialNode(self, self.normalize_path(path),
+                             self.hg_node(rev))
 
     def get_oldest_rev(self):
         return self.hg_display(nullid)
@@ -528,38 +530,7 @@ class MercurialRepository(Repository):
         return log.rev(self.hg_node(rev1)) < log.rev(self.hg_node(rev2))
 
 #    def get_path_history(self, path, rev=None, limit=None):
-#         path = self.normalize_path(path)
-#         rev = self.normalize_rev(rev)
-#         expect_deletion = False
-#         while rev:
-#             if self.has_node(path, rev):
-#                 if expect_deletion:
-#                     # it was missing, now it's there again:
-#                     #  rev+1 must be a delete
-#                     yield path, rev+1, Changeset.DELETE
-#                 newer = None # 'newer' is the previously seen history tuple
-#                 older = None # 'older' is the currently examined history tuple
-#                 for p, r in _get_history(path, 0, rev, limit):
-#                     older = (p, r, Changeset.ADD)
-#                     rev = self.previous_rev(r)
-#                     if newer:
-#                         if older[0] == path:
-#                             # still on the path: 'newer' was an edit
-#                             yield newer[0], newer[1], Changeset.EDIT
-#                         else:
-#                             # the path changed: 'newer' was a copy
-#                             rev = self.previous_rev(newer[1])
-#                             # restart before the copy op
-#                             yield newer[0], newer[1], Changeset.COPY
-#                             older = (older[0], older[1], 'unknown')
-#                             break
-#                     newer = older
-#                 if older:
-#                     # either a real ADD or the source of a COPY
-#                     yield older
-#             else:
-#                 expect_deletion = True
-#                 rev = self.previous_rev(rev)
+#      (not really relevant for Mercurial)
 
     def get_changes(self, old_path, old_rev, new_path, new_rev,
                     ignore_ancestry=1):
@@ -575,11 +546,13 @@ class MercurialRepository(Repository):
         if self.has_node(old_path, old_rev):
             old_node = self.get_node(old_path, old_rev)
         else:
-            raise NoSuchNode(old_path, old_rev, 'The Base for Diff is invalid')
+            raise NoSuchNode(old_path, old_rev, 
+                             _('The Base for Diff is invalid'))
         if self.has_node(new_path, new_rev):
             new_node = self.get_node(new_path, new_rev)
         else:
-            raise NoSuchNode(new_path, new_rev, 'The Target for Diff is invalid')
+            raise NoSuchNode(new_path, new_rev,
+                             _('The Target for Diff is invalid'))
         # check kind, both should be same.
         if new_node.kind != old_node.kind:
             raise TracError(
@@ -666,10 +639,10 @@ class MercurialNode(Node):
                         dirnames.remove(d)
                         if not dirnames: # if nothing left to find
                             return dirnodes
-        # FIXME if we get here, the manifest contained a file which was not found 
-        #       in any changelog. This can't normally happen, but we may later on
-        #       introduce a ''cut-off'' value for not going through the whole history
-        #       and only return what we got so far
+        # FIXME if we get here, the manifest contained a file which was not
+        #       found in any changelog. This can't normally happen, but we may
+        #       later on introduce a ''cut-off'' value for not going through
+        #       the whole history and only return what we got so far
         return dirnodes
 
     def _init_path(self, log, path):
@@ -695,7 +668,8 @@ class MercurialNode(Node):
                         node = self._dirnode
                     else:
                         # we find the most recent change for a file below dir
-                        node = self.findnode(log.rev(self.n), [dir,] ).values()[0]
+                        dirnodes = self.findnode(log.rev(self.n), [dir,])
+                        node = dirnodes.values()[0]
                 else:
                     node = log.tip()
         if not kind:
@@ -754,7 +728,8 @@ class MercurialNode(Node):
         if dirnames:
             n_rev = log.rev(self.n)
             node_rev = log.rev(self.node)
-            dirnodes = self.findnode((n_rev > node_rev) and node_rev or n_rev, dirnames)
+            dirnodes = self.findnode((n_rev > node_rev) and node_rev or n_rev,
+                                     dirnames)
         else:
             dirnodes = {}
 
@@ -906,7 +881,8 @@ class MercurialChangeset(Changeset):
             if f in deletions: # and since Mercurial > 0.7 [hg c6ffedc4f11b]
                 continue          # also 'deleted' files
             action = None
-            # TODO: find a way to detect conflicts and show how they were solved
+            # TODO: find a way to detect conflicts and show how they were 
+            #       solved (kind of 3-way diff - theirs/mine/merged)
             if manifest1 and f in manifest1:
                 action = Changeset.EDIT                
                 changes.append((f, Node.FILE, action, f, self.parents[0]))
