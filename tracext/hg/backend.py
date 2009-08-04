@@ -454,6 +454,9 @@ class MercurialRepository(Repository):
     def get_changeset(self, rev):
         return MercurialChangeset(self, self.hg_node(unicode(rev)))
 
+    def get_changeset_uid(self, rev):
+        return self.hg_node(rev)
+
     def get_changesets(self, start, stop):
         """Follow each head and parents in order to get all changesets
 
@@ -855,9 +858,6 @@ class MercurialChangeset(Changeset):
         self.tags = [t for t in repos.repo.nodetags(n)]
         self.branch = extra.pop("branch", None) 
         self.extra = extra
-
-    def get_uid(self):
-        return self.n
 
     hg_properties = [
         N_("Parents:"), N_("Children:"), N_("Branch:"), N_("Tags:")
