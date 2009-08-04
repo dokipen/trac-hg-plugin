@@ -753,6 +753,7 @@ class MercurialNode(Node):
         # keep one lookahead entry so that we can detect renames
         path = self.path
         entry = None
+        count = 1
         for st, rev, fns in chgiter:
             if st == 'add' and self.isfile:
                 fncache[rev] = fns[0]
@@ -762,10 +763,13 @@ class MercurialNode(Node):
                     if path != entry[0]:
                         entry = entry[0:2] + (Changeset.COPY,)
                 if entry:
+                    count += 1
                     yield entry
                 n = repo.changelog.node(rev)
                 entry = (path, self.repos.hg_display(n), Changeset.EDIT)
         if entry:
+            if count < limit:
+                entry = entry[0:2] + (Changeset.ADD,)
             yield entry
 
     def get_annotations(self):
