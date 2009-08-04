@@ -739,41 +739,18 @@ class MercurialNode(Node):
             yield self.subnode(entry, dirnodes.get(entry+"/", None))
 
     def get_history(self, limit=None):
-        newer = None # 'newer' is the previously seen history tuple
-        older = None # 'older' is the currently examined history tuple
         repo = self.repos.repo
-        log = repo.changelog
         
-        # directory history
-        if self.isdir:
-            if not self.path: # special case for the root
-                for r in xrange(log.rev(self.n), -1, -1):
-                    yield ('', self.repos.hg_display(log.node(r)),
-                           r and Changeset.EDIT or Changeset.ADD)
-                return
-            getchange = cachefunc(lambda r:repo.changectx(r).changeset())
-            pats = ['path:' + self.path]
-            opts = {'rev': ['%s:0' % hex(self.n)]}
-            wcr = walkchangerevs(self.repos.ui, repo, pats, getchange, opts)
-            for st, rev, fns in wcr[0]:
-                if st == 'iter':
-                    yield (self.path, self.repos.hg_display(log.node(rev)),
-                           Changeset.EDIT)
-            return
-        # file history
-        # FIXME: COPY currently unsupported        
-        for file_rev in xrange(self.filectx.filerev(), -1, -1):
-            file_node = self.filectx.filelog().node(file_rev)
-            rev = log.node(self.filectx.filectx(file_node).linkrev())
-            older = (self.path, self.repos.hg_display(rev), Changeset.ADD)
-            if newer:
-                change = newer[0] == older[0] and Changeset.EDIT or \
-                         Changeset.COPY
-                newer = (newer[0], newer[1], change)
-                yield newer
-            newer = older
-        if newer:
-            yield newer
+        get = cachefunc(lambda r: repo[r].changeset())
+        pats = []
+        if self.path:
+            pats.append('path:' + self.path)
+        opts = {'rev': ['%s:0' % hex(self.n)]}
+        chgiter, matchfn = walkchangerevs(self.repos.ui, repo, pats, get, opts)
+        for st, rev, fns in chgiter:
+            if st == 'iter':
+                n = repo.changelog.node(rev)
+                yield (self.path, self.repos.hg_display(n), Changeset.EDIT)
 
     def get_annotations(self):
         annotations = []
