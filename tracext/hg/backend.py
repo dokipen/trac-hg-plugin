@@ -177,7 +177,7 @@ class MercurialConnector(Component):
     implements(IRepositoryConnector, IWikiSyntaxProvider)
 
     def __init__(self):
-        self._version = None
+        self._version = self._version_info = None
         self.ui = None
         locale_dir = pkg_resources.resource_filename(__name__, 'locale')
         add_domain(self.env.path, locale_dir)
@@ -226,6 +226,12 @@ class MercurialConnector(Component):
             except ImportError: # gone in Mercurial 1.2 (hg:9626819b2e3d)
                 from mercurial.util import version
                 self._version = version()
+            # development version assumed to be always the ''newest'' one,
+            # i.e. old development version won't be supported
+            self._version_info = (999, 0, 0) 
+            m = re.match(r'(\d+)\.(\d+)(?:\.(\d+))?', self._version or '')
+            if m:
+                self._version_info = tuple([int(n or 0) for n in m.groups()])
             self.env.systeminfo.append(('Mercurial', self._version))
         options = {}
         for key, val in self.config.options(type):
@@ -235,7 +241,9 @@ class MercurialConnector(Component):
         options.update(repo_options)
         if not self.ui:
             self._setup_ui(options.get('hgrc'))
-        return MercurialRepository(dir, self.log, self.ui, options)
+        repos = MercurialRepository(dir, self.log, self.ui, options)
+        repos.version_info = self._version_info
+        return repos
 
 
     # IWikiSyntaxProvider methods
@@ -741,7 +749,11 @@ class MercurialNode(Node):
     def get_history(self, limit=None):
         repo = self.repos.repo
         
-        get = cachefunc(lambda r: repo[r].changeset())
+        if self.repos.version_info > (1, 3, 999):
+            changefn = lambda r: repo[r]
+        else:
+            changefn = lambda r: repo[r].changeset()
+        get = cachefunc(changefn)
         pats = []
         if self.path:
             pats.append('path:' + self.path)
