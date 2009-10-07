@@ -158,7 +158,7 @@ class MercurialConnector(Component):
     implements(IRepositoryConnector, IWikiSyntaxProvider)
 
     def __init__(self):
-        self._version = None
+        self._version = self._version_info = None
         self.ui = None
 
     def _setup_ui(self, hgrc_path):
@@ -213,13 +213,21 @@ class MercurialConnector(Component):
             except ImportError: # gone in Mercurial 1.2 (hg:9626819b2e3d)
                 from mercurial.util import version
                 self._version = version()
+            # development version assumed to be always the ''newest'' one,
+            # i.e. old development version won't be supported
+            self._version_info = (999, 0, 0) 
+            m = re.match(r'(\d+)\.(\d+)(?:\.(\d+))?', self._version or '')
+            if m:
+                self._version_info = tuple([int(n or 0) for n in m.groups()])
             self.env.systeminfo.append(('Mercurial', self._version))
         if not self.ui:
             self._setup_ui(self.config.get(type, 'hgrc'))
         options = {}
         for key, val in self.config.options(type):
             options[key] = val
-        return MercurialRepository(dir, self.log, self.ui, options)
+        repos = MercurialRepository(dir, self.log, self.ui, options)
+        repos.version_info = self._version_info
+        return repos
 
 
     # IWikiSyntaxProvider methods
@@ -713,7 +721,13 @@ class MercurialNode(Node):
                     yield ('', self.repos.hg_display(log.node(r)),
                            r and Changeset.EDIT or Changeset.ADD)
                 return
-            getchange = cachefunc(lambda r:repo.changectx(r).changeset())
+            if self.repos.version_info > (1, 3, 999):
+                changefn = lambda r: repo[r]
+            elif self.repos.version_info >= (1, 0, 2):
+                changefn = lambda r: repo[r].changeset()
+            else:
+                changefn = lambda r: repo.changectx(r).changeset()
+            getchange = cachefunc(changefn)
             pats = ['path:' + self.path]
             opts = {'rev': ['%s:0' % hex(self.n)]}
             wcr = walkchangerevs(self.repos.ui, repo, pats, getchange, opts)
