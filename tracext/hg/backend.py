@@ -107,7 +107,7 @@ class CsetPropertyRenderer(Component):
                          title=shorten_line(chgset.message),
                          href=context.href.changeset(rev, repos.reponame))
         if name == 'Parents' and len(revs) == 2: # merge
-            new = context.resource.id[1]
+            new = context.resource.id
             parent_links = [
                     (link(rev), ' (',
                      tag.a('diff', title=_("Diff against this parent "
@@ -263,7 +263,7 @@ class MercurialConnector(Component):
         context = formatter.context
         while context:
             if context.resource.realm in ('source', 'changeset'):
-                reponame = context.resource.id[0]
+                reponame = context.resource.parent.id
                 break
             context = context.parent
         repos = self.env.get_repository(reponame)
