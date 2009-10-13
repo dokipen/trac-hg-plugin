@@ -681,10 +681,11 @@ class MercurialNode(Node):
                 else:
                     node = log.tip()
         if not kind:
-            if log.tip() == nullid: # empty repository
+            if log.tip() == nullid or not (self.manifest or path):
+                # empty or emptied repository
                 kind = Node.DIRECTORY
                 self.entries = []
-                node = nullid
+                node = log.tip()
             else:
                 raise NoSuchNode(path, self.repos.hg_display(self.n))
         self.time = self.repos.hg_time(log.read(node)[2])
