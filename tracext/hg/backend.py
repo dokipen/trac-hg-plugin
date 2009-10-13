@@ -365,6 +365,8 @@ class MercurialRepository(Repository):
         try:
             if rev:
                 rev = rev.split(':', 1)[0]
+                if rev == '-1':
+                    return nullid
                 if rev.isdigit():
                     try:
                         return self.repo.changelog.node(rev)
