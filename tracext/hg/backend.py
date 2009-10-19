@@ -241,7 +241,8 @@ class MercurialConnector(Component):
         options.update(repo_options)
         if not self.ui:
             self._setup_ui(options.get('hgrc'))
-        repos = MercurialRepository(dir, self.log, self.ui, options)
+        repos = MercurialRepository(repo_options['name'], repo_options['id'],
+                                    dir, self.log, self.ui, options)
         repos.version_info = self._version_info
         return repos
 
@@ -323,7 +324,7 @@ class MercurialRepository(Repository):
     additional changeset properties.
     """
 
-    def __init__(self, path, log, ui, options):
+    def __init__(self, reponame, id, path, log, ui, options):
         self.ui = ui
         self.options = options
         self.reponame = None
@@ -346,7 +347,7 @@ class MercurialRepository(Repository):
         if self.path is None:
             raise TracError(_("%(path)s does not appear to contain a Mercurial"
                               " repository.", path=path))
-        Repository.__init__(self, 'hg:%s' % path, None, log)
+        Repository.__init__(self, reponame, id, 'hg:%s' % path, None, log)
 
     def hg_time(self, timeinfo):
         # [hg b47f96a178a3] introduced an API change:
