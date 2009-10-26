@@ -217,7 +217,7 @@ class MercurialConnector(Component):
         else:
             yield ("hg", 8)
 
-    def get_repository(self, type, dir, repo_options):
+    def get_repository(self, type, dir, params):
         """Return a `MercurialRepository`"""
         if not self._version:
             try:
@@ -236,13 +236,10 @@ class MercurialConnector(Component):
         options = {}
         for key, val in self.config.options(type):
             options[key] = val
-        if isinstance(repo_options, basestring): # 0.11 compat
-            repo_options = {'username': repo_options}
-        options.update(repo_options)
+        options.update(params)
         if not self.ui:
             self._setup_ui(options.get('hgrc'))
-        repos = MercurialRepository(repo_options['name'], repo_options['id'],
-                                    dir, self.log, self.ui, options)
+        repos = MercurialRepository(dir, options, self.log, self.ui)
         repos.version_info = self._version_info
         return repos
 
@@ -324,10 +321,8 @@ class MercurialRepository(Repository):
     additional changeset properties.
     """
 
-    def __init__(self, reponame, id, path, log, ui, options):
+    def __init__(self, path, params, log, ui):
         self.ui = ui
-        self.options = options
-        self.reponame = None
         # TODO: per repository ui and options?
         if isinstance(path, unicode):
             str_path = path.encode('utf-8')
@@ -340,14 +335,14 @@ class MercurialRepository(Repository):
         except RepoError, e:
             self.path = None
         self._show_rev = True
-        if 'show_rev' in options and not options['show_rev'] in TRUE:
+        if 'show_rev' in params and not params['show_rev'] in TRUE:
             self._show_rev = False
-        self._node_fmt = 'node_format' in options \
-                         and options['node_format']   # will default to 'short'
+        self._node_fmt = 'node_format' in params \
+                         and params['node_format']  # will default to 'short'
         if self.path is None:
             raise TracError(_("%(path)s does not appear to contain a Mercurial"
                               " repository.", path=path))
-        Repository.__init__(self, reponame, id, 'hg:%s' % path, None, log)
+        Repository.__init__(self, 'hg:%s' % path, params, None, log)
 
     def hg_time(self, timeinfo):
         # [hg b47f96a178a3] introduced an API change:
@@ -449,7 +444,7 @@ class MercurialRepository(Repository):
                 pass
 
     def get_path_url(self, path, rev):
-        url = self.options.get('url')
+        url = self.params.get('url')
         if url and (not path or path == '/'):
             if not rev:
                 return url
@@ -809,7 +804,7 @@ class MercurialNode(Node):
     def get_content_type(self):
         if self.isdir:
             return None
-        if 'mq' in self.repos.options:
+        if 'mq' in self.repos.params:
             if self.path not in ('.hgignore', 'series'):
                 return 'text/x-diff'
         return ''
