@@ -62,11 +62,13 @@ tracext.hg.* = enabled
 === Setting up a Trac environment ===
 
 It is now recommended to use the new set of trac-admin commands 
-`repository ...` to create, delete and rename repositories.
+`repository ...` to create, delete and rename references to repositories
+(note that Trac will never do anything to the actual Mercurial repositories 
+beyond accessing them for read operations).
 
 The old default settings for defining the default repository are still
-supported but deprecated (use an empty repository or create an empty alias,
-see `trac-admin help repository alias`).
+supported but deprecated (use an empty repository name or create an empty 
+alias, see `trac-admin help repository alias`).
 
 (Old-style) the trac.ini file contains `[trac]` section similar to the 
 following:
