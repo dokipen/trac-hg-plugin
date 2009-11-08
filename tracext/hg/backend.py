@@ -19,7 +19,7 @@ from genshi.builder import tag
 
 from trac.core import *
 from trac.config import _TRUE_VALUES as TRUE
-from trac.util.compat import sorted, reversed
+from trac.util import arity
 from trac.util.datefmt import utc
 from trac.util.text import shorten_line, to_unicode
 from trac.versioncontrol.api import Changeset, Node, Repository, \
@@ -48,14 +48,14 @@ try:
     from mercurial.ui import ui
     from mercurial.node import hex, short, nullid
     from mercurial.util import pathto, cachefunc
-    from mercurial.cmdutil import walkchangerevs
+    from mercurial import cmdutil
     from mercurial import extensions
     from mercurial.extensions import loadall
 
     # Note: due to the nature of demandimport, there will be no actual 
     # import error until those symbols get accessed, so here we go:
     for sym in ("ui hex short nullid pathto "
-                "cachefunc walkchangerevs loadall".split()):
+                "cachefunc loadall".split()):
         if repr(globals()[sym]) == "<unloaded module '%s'>" % sym:
             hg_import_error.append(sym)
     if hg_import_error:
@@ -709,47 +709,78 @@ class MercurialNode(Node):
             yield self.subnode(entry, dirnodes.get(entry+"/", None))
 
     def get_history(self, limit=None):
-        newer = None # 'newer' is the previously seen history tuple
-        older = None # 'older' is the currently examined history tuple
         repo = self.repos.repo
-        log = repo.changelog
-        
-        # directory history
-        if self.isdir:
-            if not self.path: # special case for the root
-                for r in xrange(log.rev(self.n), -1, -1):
-                    yield ('', self.repos.hg_display(log.node(r)),
-                           r and Changeset.EDIT or Changeset.ADD)
-                return
-            if self.repos.version_info > (1, 3, 999):
-                changefn = lambda r: repo[r]
-            elif self.repos.version_info >= (1, 0, 2):
-                changefn = lambda r: repo[r].changeset()
-            else:
-                changefn = lambda r: repo.changectx(r).changeset()
-            getchange = cachefunc(changefn)
-            pats = ['path:' + self.path]
-            opts = {'rev': ['%s:0' % hex(self.n)]}
-            wcr = walkchangerevs(self.repos.ui, repo, pats, getchange, opts)
-            for st, rev, fns in wcr[0]:
-                if st == 'iter':
-                    yield (self.path, self.repos.hg_display(log.node(rev)),
-                           Changeset.EDIT)
-            return
-        # file history
-        # FIXME: COPY currently unsupported        
-        for file_rev in xrange(self.filectx.filerev(), -1, -1):
-            file_node = self.filectx.filelog().node(file_rev)
-            rev = log.node(self.filectx.filectx(file_node).linkrev())
-            older = (self.path, self.repos.hg_display(rev), Changeset.ADD)
-            if newer:
-                change = newer[0] == older[0] and Changeset.EDIT or \
-                         Changeset.COPY
-                newer = (newer[0], newer[1], change)
-                yield newer
-            newer = older
-        if newer:
-            yield newer
+        pats = []
+        if self.path:
+            pats.append('path:' + self.path)
+        opts = {'rev': ['%s:0' % hex(self.n)]}
+        if self.isfile:
+            opts['follow'] = True
+        if arity(cmdutil.walkchangerevs) == 4:
+            return self._get_history_1_4(repo, pats, opts, limit)
+        else:
+            return self._get_history_1_3(repo, pats, opts, limit)
+
+    def _get_history_1_4(self, repo, pats, opts, limit):
+        matcher = cmdutil.match(repo, pats, opts)
+        if self.isfile:
+            fncache = {}
+            def prep(ctx, fns):
+                if self.isfile:
+                    fncache[ctx.rev()] = fns[0]
+        else:
+            def prep(ctx, fns):
+                pass
+
+        # keep one lookahead entry so that we can detect renames
+        path = self.path
+        entry = None
+        count = 1
+        for ctx in cmdutil.walkchangerevs(repo, matcher, opts, prep):
+            if self.isfile and entry:
+                path = fncache[ctx.rev()]
+                if path != entry[0]:
+                    entry = entry[0:2] + (Changeset.COPY,)
+            if entry:
+                count += 1
+                yield entry
+            entry = (path, self.repos.hg_display(ctx.node()), Changeset.EDIT)
+        if entry:
+            if count < limit:
+                entry = entry[0:2] + (Changeset.ADD,)
+            yield entry
+
+    def _get_history_1_3(self, repo, pats, opts, limit):
+        if self.repos.version_info > (1, 3, 999):
+            changefn = lambda r: repo[r]
+        else:
+            changefn = lambda r: repo[r].changeset()
+        get = cachefunc(changefn)
+        if self.isfile:
+            fncache = {}
+        chgiter, matchfn = cmdutil.walkchangerevs(self.repos.ui, repo, pats, 
+                                                  get, opts)
+        # keep one lookahead entry so that we can detect renames
+        path = self.path
+        entry = None
+        count = 1
+        for st, rev, fns in chgiter:
+            if st == 'add' and self.isfile:
+                fncache[rev] = fns[0]
+            elif st == 'iter':
+                if self.isfile and entry:
+                    path = fncache[rev]
+                    if path != entry[0]:
+                        entry = entry[0:2] + (Changeset.COPY,)
+                if entry:
+                    count += 1
+                    yield entry
+                n = repo.changelog.node(rev)
+                entry = (path, self.repos.hg_display(n), Changeset.EDIT)
+        if entry:
+            if count < limit:
+                entry = entry[0:2] + (Changeset.ADD,)
+            yield entry
 
     def get_annotations(self):
         from mercurial.context import filectx
