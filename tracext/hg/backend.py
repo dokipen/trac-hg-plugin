@@ -459,7 +459,7 @@ class MercurialRepository(Repository):
     def get_youngest_rev(self):
         return self.hg_display(self.repo.changelog.tip())
 
-    def previous_rev(self, rev):
+    def previous_rev(self, rev, path=''): # FIXME: path ignored for now
         n = self.hg_node(rev)
         log = self.repo.changelog
         for p in log.parents(n):
