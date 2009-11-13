@@ -415,11 +415,15 @@ class MercurialRepository(Repository):
 
     def get_quickjump_entries(self, rev):
         branches = {}
+        closed_branches = {}
         tags = {}
         branchtags = self.repo.branchtags().items()
         tagslist = self.repo.tagslist()
         for b, n in branchtags:
-            branches[n] = b
+            if 'close' in self.repo[n].extra():
+                closed_branches[n] = b
+            else:
+                branches[n] = b
         for t, n in tagslist:
             tags.setdefault(n, []).append(t)
         def taginfo(n):
@@ -428,12 +432,12 @@ class MercurialRepository(Repository):
             else:
                 return ''
         # branches
-        for b, n in sorted(branchtags, reverse=True, 
-                           key=lambda (b, n): self.repo.changelog.rev(n)):
+        for n, b in sorted(branches.items(), reverse=True, 
+                           key=lambda (n, b): self.repo.changelog.rev(n)):
             yield ('branches', b + taginfo(n), '/', self.hg_display(n))
         # heads
         for n in self.repo.heads():
-            if n not in branches:
+            if n not in branches and n not in closed_branches:
                 h = self.hg_display(n)
                 yield ('extra heads', h + taginfo(n), '/', h)
         # tags
@@ -443,6 +447,10 @@ class MercurialRepository(Repository):
                        '/', self.hg_display(n))
             except KeyError:
                 pass
+        # closed branches
+        for n, b in sorted(closed_branches.items(), reverse=True, 
+                           key=lambda (n, b): self.repo.changelog.rev(n)):
+            yield ('closed branches', b + taginfo(n), '/', self.hg_display(n))
 
     def get_path_url(self, path, rev):
         url = self.params.get('url')
