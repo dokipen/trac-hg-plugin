@@ -524,7 +524,8 @@ class MercurialRepository(Repository):
         n = self.hg_node(rev)
         log = self.repo.changelog
         for p in log.parents(n):
-            return self.hg_display(p) # always follow first parent
+            if p != nullid:
+                return self.hg_display(p) # always follow first parent
     
     def next_rev(self, rev, path=''):
         n = self.hg_node(rev)
