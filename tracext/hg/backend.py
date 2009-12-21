@@ -185,7 +185,10 @@ class MercurialConnector(Component):
                 # setup extensions
                 extsetup = getattr(module, 'extsetup', None)
                 if extsetup:
-                    extsetup()
+                    if arity(extsetup) == 1:
+                        extsetup(self.ui)
+                    else:
+                        extsetup()
 
     def get_supported_types(self):
         """Support for `repository_type = hg`"""
