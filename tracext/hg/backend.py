@@ -346,7 +346,7 @@ class MercurialRepository(Repository):
         if self.path is None:
             raise TracError(_("%(path)s does not appear to contain a Mercurial"
                               " repository.", path=path))
-        Repository.__init__(self, 'hg:%s' % path, params, None, log)
+        Repository.__init__(self, 'hg:%s' % path, params, log)
 
     def hg_time(self, timeinfo):
         # [hg b47f96a178a3] introduced an API change:
@@ -701,7 +701,7 @@ class MercurialNode(Node):
                 raise NoSuchNode(path, self.repos.hg_display(self.n))
         self.time = self.repos.hg_time(log.read(node)[2])
         rev = self.repos.hg_display(node)
-        Node.__init__(self, path, rev, kind)
+        Node.__init__(self, self.repos, path, rev, kind)
         self.created_path = path
         self.created_rev = rev
         self.node = node
@@ -878,7 +878,7 @@ class MercurialChangeset(Changeset):
         if len(log_data) > 5: # extended changelog, since [hg 2f35961854fb]
             extra = log_data[5]
         time = repos.hg_time(timeinfo)
-        Changeset.__init__(self, repos.hg_display(n), to_unicode(desc),
+        Changeset.__init__(self, repos, repos.hg_display(n), to_unicode(desc),
                            to_unicode(user), time)
         self.repos = repos
         self.n = n
