@@ -1,0 +1,102 @@
+# Translations template for TracMercurial.
+# Copyright (C) 2009 ORGANIZATION
+# This file is distributed under the same license as the TracMercurial
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2009.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: TracMercurial 0.12.0.9\n"
+"Report-Msgid-Bugs-To: cboos@neuf.fr\n"
+"POT-Creation-Date: 2009-11-19 16:21+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 0.9.4\n"
+
+#: tracext/hg/backend.py:99
+msgid ":"
+msgstr ""
+
+#: tracext/hg/backend.py:114
+msgid ""
+"Diff against this parent (show the changes merged from the other "
+"parents)"
+msgstr ""
+
+#: tracext/hg/backend.py:124
+#, python-format
+msgid ""
+"Note: this is a %(merge)s changeset, the changes displayed below "
+"correspond to the merge itself."
+msgstr ""
+
+#: tracext/hg/backend.py:132
+#, python-format
+msgid ""
+"Use the %(diff)s links above to see all the changes relative to each "
+"parent."
+msgstr ""
+
+#: tracext/hg/backend.py:155
+msgid "no such changeset"
+msgstr ""
+
+#: tracext/hg/backend.py:156
+msgid "Transplant:"
+msgstr ""
+
+#: tracext/hg/backend.py:173
+msgid "(binary, size greater than 100 bytes)"
+msgstr ""
+
+#: tracext/hg/backend.py:285
+#, python-format
+msgid "Repository '%(repo)s' not found"
+msgstr ""
+
+#: tracext/hg/backend.py:344
+#, python-format
+msgid "%(path)s does not appear to contain a Mercurial repository."
+msgstr ""
+
+#: tracext/hg/backend.py:566
+msgid "The Base for Diff is invalid"
+msgstr ""
+
+#: tracext/hg/backend.py:571
+msgid "The Target for Diff is invalid"
+msgstr ""
+
+#: tracext/hg/backend.py:575
+#, python-format
+msgid ""
+"Diff mismatch: Base is a %(okind)s (%(opath)s in revision %(orev)s) "
+"and Target is a %(nkind)s (%(npath)s in revision %(nrev)s)."
+msgstr ""
+
+#: tracext/hg/backend.py:719
+#, python-format
+msgid "Can't read from directory %(path)s"
+msgstr ""
+
+#: tracext/hg/backend.py:892
+msgid "Parents:"
+msgstr ""
+
+#: tracext/hg/backend.py:892
+msgid "Children:"
+msgstr ""
+
+#: tracext/hg/backend.py:892
+msgid "Branch:"
+msgstr ""
+
+#: tracext/hg/backend.py:892
+msgid "Tags:"
+msgstr ""
+

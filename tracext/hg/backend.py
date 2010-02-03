@@ -15,6 +15,8 @@ import time
 import posixpath
 import re
 
+import pkg_resources
+
 from genshi.builder import tag
 
 from trac.core import *
@@ -27,6 +29,15 @@ from trac.versioncontrol.api import Changeset, Node, Repository, \
                                     NoSuchChangeset, NoSuchNode
 from trac.versioncontrol.web_ui import IPropertyRenderer, RenderedProperty
 from trac.wiki import IWikiSyntaxProvider
+
+try:
+    from trac.util.translation import domain_functions
+    gettext, _, tag_, N_, add_domain = domain_functions('tracmercurial', 
+    'gettext', '_', 'tag_', 'N_', 'add_domain')
+except ImportError:
+    from trac.util.translation import _, tag_, N_, gettext
+    def add_domain(a,b): 
+        pass
 
 hg_import_error = []
 try:
@@ -45,6 +56,7 @@ try:
         demandimport = None
 
     from mercurial import hg
+    from mercurial.context import filectx
     from mercurial.ui import ui
     from mercurial.node import hex, short, nullid
     from mercurial.util import pathto, cachefunc
@@ -54,7 +66,7 @@ try:
 
     # Note: due to the nature of demandimport, there will be no actual 
     # import error until those symbols get accessed, so here we go:
-    for sym in ("ui hex short nullid pathto "
+    for sym in ("filectx ui hex short nullid pathto "
                 "cachefunc loadall".split()):
         if repr(globals()[sym]) == "<unloaded module '%s'>" % sym:
             hg_import_error.append(sym)
@@ -84,33 +96,40 @@ class CsetPropertyRenderer(Component):
                 mode == 'revprop') and 4 or 0
     
     def render_property(self, name, mode, context, props):
+        return RenderedProperty(name=gettext(name+':'), 
+                name_attributes=[("class", "property")],
+                content=self._render_property(name, mode, context, props))
+
+    def _render_property(self, name, mode, context, props):
         repos, revs = props[name]
         def link(rev):
             chgset = repos.get_changeset(rev)
             return tag.a(rev, class_="changeset",
                          title=shorten_line(chgset.message),
-                         href=context.href.changeset(rev))
+                         href=context.href.changeset(rev, repos.reponame))
         if name == 'Parents' and len(revs) == 2: # merge
             new = context.resource.id
             parent_links = [
                     (link(rev), ' (',
-                     tag.a('diff', title='Diff against this parent '
-                           '(show the changes merged from the other parents)',
-                           href=context.href.changeset(new, old=rev)), ')')
+                     tag.a('diff', title=_("Diff against this parent "
+                           "(show the changes merged from the other parents)"),
+                           href=context.href.changeset(new, repos.reponame, 
+                                                       old=rev)), ')')
                            for rev in revs]
             return tag([(parent, ', ') for parent in parent_links[:-1]],
-                       parent_links[-1], tag.br(), 
-                       tag.em('Note: this is a ', tag.strong('merge'),
-                                ' changeset, the changes displayed below '
-                                ' correspond to the merge itself.', 
+                       parent_links[-1], tag.br(),
+                       tag.span(tag_("Note: this is a %(merge)s changeset, "
+                                     "the changes displayed below correspond "
+                                     "to the merge itself.",
+                                     merge=tag.strong('merge')),
                                 class_='hint'), tag.br(), 
                        # TODO: only keep chunks present in both parents 
                        #       (conflicts) or in none (extra changes)
                        # tag.span('No changes means the merge was clean.',
                        #         class_='hint'), tag.br(), 
-                       tag.em('Use the ', tag.tt('(diff)'), 
-                                ' links above to see all the '
-                                'changes relative to each parent.', 
+                       tag.span(tag_("Use the %(diff)s links above to see all "
+                                     "the changes relative to each parent.",
+                                     diff=tag.tt('(diff)')),
                                 class_='hint'))
         return tag([tag(link(rev), ', ') for rev in revs[:-1]],
                    link(revs[-1]))
@@ -129,11 +148,12 @@ class HgExtPropertyRenderer(Component):
                 chgset = MercurialChangeset(repos, value)
                 link = tag.a(chgset.rev, class_="changeset",
                              title=shorten_line(chgset.message),
-                             href=context.href.changeset(short(value)))
+                             href=context.href.changeset(short(value),
+                                                         repos.reponame))
             except LookupError:
                 link = tag.a(hex(value), class_="missing changeset",
-                             title="no such changeset", rel="nofollow")
-            return RenderedProperty(name="Transplant:", content=link,
+                             title=_("no such changeset"), rel="nofollow")
+            return RenderedProperty(name=_("Transplant:"), content=link,
                                     name_attributes=[("class", "property")])
 
 class HgDefaultPropertyRenderer(Component):
@@ -148,9 +168,9 @@ class HgDefaultPropertyRenderer(Component):
             return unicode(value)
         except UnicodeDecodeError:
             if len(value) <= 100:
-                return tag.tt(''.join([("%02x" % ord(c)) for c in value]))
+                return tag.tt(''.join(("%02x" % ord(c)) for c in value))
             else:
-                return tag.em('(binary, size greater than 100 bytes)')
+                return tag.em(_("(binary, size greater than 100 bytes)"))
 
 
 class MercurialConnector(Component):
@@ -160,6 +180,8 @@ class MercurialConnector(Component):
     def __init__(self):
         self._version = self._version_info = None
         self.ui = None
+        locale_dir = pkg_resources.resource_filename(__name__, 'locale')
+        add_domain(self.env.path, locale_dir)
 
     def _setup_ui(self, hgrc_path):
         self.ui = trac_ui(self.log)
@@ -195,19 +217,11 @@ class MercurialConnector(Component):
         global hg_import_error
         if hg_import_error:
             self.error = hg_import_error
-            import pkg_resources
-            trac_dist = pkg_resources.get_distribution('Trac')
-            version = trac_dist.parsed_version 
-            # for detailed error reporting, we need 0.11.1 or 
-            # 0.11-stable starting from r7435
-            if version >= ('00000000', '00000011', '00000001') or \
-                    (version[2] == '*stable' and version[5] >= 7435):
-                yield ("hg", -1)
-            # otherwise, old-style "missing bindings" error will be reported
+            yield ("hg", -1)
         else:
             yield ("hg", 8)
 
-    def get_repository(self, type, dir, authname):
+    def get_repository(self, type, dir, params):
         """Return a `MercurialRepository`"""
         if not self._version:
             try:
@@ -223,12 +237,13 @@ class MercurialConnector(Component):
             if m:
                 self._version_info = tuple([int(n or 0) for n in m.groups()])
             self.env.systeminfo.append(('Mercurial', self._version))
-        if not self.ui:
-            self._setup_ui(self.config.get(type, 'hgrc'))
         options = {}
         for key, val in self.config.options(type):
             options[key] = val
-        repos = MercurialRepository(dir, self.log, self.ui, options)
+        options.update(params)
+        if not self.ui:
+            self._setup_ui(options.get('hgrc'))
+        repos = MercurialRepository(dir, options, self.log, self.ui)
         repos.version_info = self._version_info
         return repos
 
@@ -246,23 +261,33 @@ class MercurialConnector(Component):
         yield ('tag', self._format_link)
 
     def _format_link(self, formatter, ns, rev, label):
-        repos = self.env.get_repository()
-        try:
-            if ns == 'branch':
-                for b, n in repos.repo.branchtags().items():
-                    if b == rev:
-                        rev = repos.repo.changelog.rev(n)
-                        break
-                else:
-                    raise NoSuchChangeset(rev)
-            chgset = repos.get_changeset(rev)
-            return tag.a(label, class_="changeset",
-                         title=shorten_line(chgset.message),
-                         href=formatter.href.changeset(rev))
-        except NoSuchChangeset, e:
-            return tag.a(label, class_="missing changeset",
-                         title=to_unicode(e), rel="nofollow",
-                         href=formatter.href.changeset(rev))
+        reponame = ''
+        context = formatter.context
+        while context:
+            if context.resource.realm in ('source', 'changeset'):
+                reponame = context.resource.parent.id
+                break
+            context = context.parent
+        repos = self.env.get_repository(reponame)
+        if repos:
+            try:
+                if ns == 'branch':
+                    for b, n in repos.repo.branchtags().items():
+                        if b == rev:
+                            rev = repos.repo.changelog.rev(n)
+                            break
+                    else:
+                        raise NoSuchChangeset(rev)
+                chgset = repos.get_changeset(rev)
+                return tag.a(label, class_="changeset",
+                             title=shorten_line(chgset.message),
+                             href=formatter.href.changeset(rev, reponame))
+            except NoSuchChangeset, e:
+                errmsg = to_unicode(e)
+        else:
+            errmsg = _("Repository '%(repo)s' not found", repo=reponame)
+        return tag.a(label, class_="missing changeset",
+                     title=errmsg, rel="nofollow")
 
 ### Helpers 
         
@@ -300,7 +325,7 @@ class MercurialRepository(Repository):
     additional changeset properties.
     """
 
-    def __init__(self, path, log, ui, options):
+    def __init__(self, path, params, log, ui):
         self.ui = ui
         # TODO: per repository ui and options?
         if isinstance(path, unicode):
@@ -314,14 +339,14 @@ class MercurialRepository(Repository):
         except RepoError, e:
             self.path = None
         self._show_rev = True
-        if 'show_rev' in options and not options['show_rev'] in TRUE:
+        if 'show_rev' in params and not params['show_rev'] in TRUE:
             self._show_rev = False
-        self._node_fmt = 'node_format' in options \
-                         and options['node_format']    # will default to 'short'
+        self._node_fmt = 'node_format' in params \
+                         and params['node_format']  # will default to 'short'
         if self.path is None:
-            raise TracError(path + ' does not appear to ' \
-                            'contain a Mercurial repository.')
-        Repository.__init__(self, 'hg:%s' % path, None, log)
+            raise TracError(_("%(path)s does not appear to contain a Mercurial"
+                              " repository.", path=path))
+        Repository.__init__(self, 'hg:%s' % path, params, log)
 
     def hg_time(self, timeinfo):
         # [hg b47f96a178a3] introduced an API change:
@@ -340,6 +365,8 @@ class MercurialRepository(Repository):
         try:
             if rev:
                 rev = rev.split(':', 1)[0]
+                if rev == '-1':
+                    return nullid
                 if rev.isdigit():
                     try:
                         return self.repo.changelog.node(rev)
@@ -353,7 +380,8 @@ class MercurialRepository(Repository):
     def hg_display(self, n):
         """Return user-readable revision information for node `n`.
 
-        The specific format depends on the `node_format` and `show_rev` options
+        The specific format depends on the `node_format` and `show_rev`
+        options.
         """
         nodestr = self._node_fmt == "hex" and hex(n) or short(n)
         if self._show_rev:
@@ -389,32 +417,64 @@ class MercurialRepository(Repository):
         return self.repo.changelog.rev(self.hg_node(rev))
 
     def get_quickjump_entries(self, rev):
+        branches = {}
+        closed_branches = {}
+        tags = {}
+        branchtags = self.repo.branchtags().items()
+        tagslist = self.repo.tagslist()
+        for b, n in branchtags:
+            if 'close' in self.repo[n].extra():
+                closed_branches[n] = b
+            else:
+                branches[n] = b
+        for t, n in tagslist:
+            tags.setdefault(n, []).append(t)
+        def taginfo(n):
+            if n in tags:
+                return ' (%s)' % ', '.join(tags[n])
+            else:
+                return ''
         # branches
-        if hasattr(self.repo, 'branchtags'):
-            # New 0.9.2 style branches, since [hg 028fff46a4ac]
-            for t, n in sorted(self.repo.branchtags().items(), reverse=True,
-                               key=lambda (t, n): self.repo.changelog.rev(n)):
-                yield ('branches', t, '/', self.hg_display(n))
-        else:
-            # Old style branches
-            heads = self.repo.changelog.heads()
-            brinfo = self.repo.branchlookup(heads)
-            for head in heads:
-                rev = self.hg_display(head)
-                if head in brinfo:
-                    branch = ' '.join(brinfo[head])
-                else:
-                    branch = rev
-                yield ('(old-style) branches', branch, '/', rev)
+        for n, b in sorted(branches.items(), reverse=True, 
+                           key=lambda (n, b): self.repo.changelog.rev(n)):
+            yield ('branches', b + taginfo(n), '/', self.hg_display(n))
+        # heads
+        for n in self.repo.heads():
+            if n not in branches and n not in closed_branches:
+                h = self.hg_display(n)
+                yield ('extra heads', h + taginfo(n), '/', h)
         # tags
-        for t, n in reversed(self.repo.tagslist()):
+        for t, n in reversed(tagslist):
             try:
-                yield ('tags', t, '/', self.hg_display(n))
+                yield ('tags', ', '.join(tags.pop(n)), 
+                       '/', self.hg_display(n))
             except KeyError:
                 pass
+        # closed branches
+        for n, b in sorted(closed_branches.items(), reverse=True, 
+                           key=lambda (n, b): self.repo.changelog.rev(n)):
+            yield ('closed branches', b + taginfo(n), '/', self.hg_display(n))
 
+    def get_path_url(self, path, rev):
+        url = self.params.get('url')
+        if url and (not path or path == '/'):
+            if not rev:
+                return url
+            n = self.hg_node(rev)
+            branch = self.repo[n].branch()
+            if branch == 'default':
+                return url
+            return url + '#' + branch # URL for cloning that branch
+
+            # Note: link to matching location in Mercurial's file browser 
+            #rev = rev is not None and short(n) or 'tip'
+            #return '/'.join([url, 'file', rev, path])
+  
     def get_changeset(self, rev):
         return MercurialChangeset(self, self.hg_node(unicode(rev)))
+
+    def get_changeset_uid(self, rev):
+        return self.hg_node(rev)
 
     def get_changesets(self, start, stop):
         """Follow each head and parents in order to get all changesets
@@ -454,7 +514,8 @@ class MercurialRepository(Repository):
                     seeds.append(p)
 
     def get_node(self, path, rev=None):
-        return MercurialNode(self, self.normalize_path(path), self.hg_node(rev))
+        return MercurialNode(self, self.normalize_path(path),
+                             self.hg_node(rev))
 
     def get_oldest_rev(self):
         return self.hg_display(nullid)
@@ -466,10 +527,19 @@ class MercurialRepository(Repository):
         n = self.hg_node(rev)
         log = self.repo.changelog
         for p in log.parents(n):
-            return self.hg_display(p) # always follow first parent
+            if p != nullid:
+                return self.hg_display(p) # always follow first parent
     
-    def next_rev(self, rev, path=''): # FIXME: path ignored for now
+    def next_rev(self, rev, path=''):
         n = self.hg_node(rev)
+        if path and len(path): # might be a file
+            fc = filectx(self.repo, path, n)
+            if fc: # it is a file
+                for child_fc in fc.children():
+                    return self.hg_display(child_fc.node())
+                else:
+                    return None
+            # it might be a directory (not supported for now) FIXME
         log = self.repo.changelog
         for c in log.children(n):
             return self.hg_display(c) # always follow first child
@@ -479,38 +549,7 @@ class MercurialRepository(Repository):
         return log.rev(self.hg_node(rev1)) < log.rev(self.hg_node(rev2))
 
 #    def get_path_history(self, path, rev=None, limit=None):
-#         path = self.normalize_path(path)
-#         rev = self.normalize_rev(rev)
-#         expect_deletion = False
-#         while rev:
-#             if self.has_node(path, rev):
-#                 if expect_deletion:
-#                     # it was missing, now it's there again:
-#                     #  rev+1 must be a delete
-#                     yield path, rev+1, Changeset.DELETE
-#                 newer = None # 'newer' is the previously seen history tuple
-#                 older = None # 'older' is the currently examined history tuple
-#                 for p, r in _get_history(path, 0, rev, limit):
-#                     older = (p, r, Changeset.ADD)
-#                     rev = self.previous_rev(r)
-#                     if newer:
-#                         if older[0] == path:
-#                             # still on the path: 'newer' was an edit
-#                             yield newer[0], newer[1], Changeset.EDIT
-#                         else:
-#                             # the path changed: 'newer' was a copy
-#                             rev = self.previous_rev(newer[1])
-#                             # restart before the copy op
-#                             yield newer[0], newer[1], Changeset.COPY
-#                             older = (older[0], older[1], 'unknown')
-#                             break
-#                     newer = older
-#                 if older:
-#                     # either a real ADD or the source of a COPY
-#                     yield older
-#             else:
-#                 expect_deletion = True
-#                 rev = self.previous_rev(rev)
+#      (not really relevant for Mercurial)
 
     def get_changes(self, old_path, old_rev, new_path, new_rev,
                     ignore_ancestry=1):
@@ -526,17 +565,21 @@ class MercurialRepository(Repository):
         if self.has_node(old_path, old_rev):
             old_node = self.get_node(old_path, old_rev)
         else:
-            raise NoSuchNode(old_path, old_rev, 'The Base for Diff is invalid')
+            raise NoSuchNode(old_path, old_rev, 
+                             _('The Base for Diff is invalid'))
         if self.has_node(new_path, new_rev):
             new_node = self.get_node(new_path, new_rev)
         else:
-            raise NoSuchNode(new_path, new_rev, 'The Target for Diff is invalid')
+            raise NoSuchNode(new_path, new_rev,
+                             _('The Target for Diff is invalid'))
         # check kind, both should be same.
         if new_node.kind != old_node.kind:
-            raise TracError('Diff mismatch: Base is a %s (%s in revision %s) '
-                            'and Target is a %s (%s in revision %s).' \
-                            % (old_node.kind, old_path, old_rev,
-                               new_node.kind, new_path, new_rev))
+            raise TracError(
+                _("Diff mismatch: "
+                  "Base is a %(okind)s (%(opath)s in revision %(orev)s) "
+                  "and Target is a %(nkind)s (%(npath)s in revision %(nrev)s).",
+                  okind=old_node.kind, opath=old_path, orev=old_rev,
+                  nkind=new_node.kind, npath=new_path, nrev=new_rev))
         # Correct change info from changelog(revlog)
         # Finding changes between two revs requires tracking back
         # several routes.
@@ -615,10 +658,10 @@ class MercurialNode(Node):
                         dirnames.remove(d)
                         if not dirnames: # if nothing left to find
                             return dirnodes
-        # FIXME if we get here, the manifest contained a file which was not found 
-        #       in any changelog. This can't normally happen, but we may later on
-        #       introduce a ''cut-off'' value for not going through the whole history
-        #       and only return what we got so far
+        # FIXME if we get here, the manifest contained a file which was not
+        #       found in any changelog. This can't normally happen, but we may
+        #       later on introduce a ''cut-off'' value for not going through
+        #       the whole history and only return what we got so far
         return dirnodes
 
     def _init_path(self, log, path):
@@ -644,19 +687,21 @@ class MercurialNode(Node):
                         node = self._dirnode
                     else:
                         # we find the most recent change for a file below dir
-                        node = self.findnode(log.rev(self.n), [dir,] ).values()[0]
+                        dirnodes = self.findnode(log.rev(self.n), [dir,])
+                        node = dirnodes.values()[0]
                 else:
                     node = log.tip()
         if not kind:
-            if log.tip() == nullid: # empty repository
+            if log.tip() == nullid or not (self.manifest or path):
+                # empty or emptied repository
                 kind = Node.DIRECTORY
                 self.entries = []
-                node = nullid
+                node = log.tip()
             else:
                 raise NoSuchNode(path, self.repos.hg_display(self.n))
         self.time = self.repos.hg_time(log.read(node)[2])
         rev = self.repos.hg_display(node)
-        Node.__init__(self, path, rev, kind)
+        Node.__init__(self, self.repos, path, rev, kind)
         self.created_path = path
         self.created_rev = rev
         self.node = node
@@ -674,7 +719,8 @@ class MercurialNode(Node):
 
     def read(self, size=None):
         if self.isdir:
-            return TracError("Can't read from directory %s" % self.path)
+            return TracError(_("Can't read from directory %(path)s", 
+                               path=self.path))
         if self.data is None:
             self.data = self.filectx.data()
             self.pos = 0
@@ -702,7 +748,8 @@ class MercurialNode(Node):
         if dirnames:
             n_rev = log.rev(self.n)
             node_rev = log.rev(self.node)
-            dirnodes = self.findnode((n_rev > node_rev) and node_rev or n_rev, dirnames)
+            dirnodes = self.findnode((n_rev > node_rev) and node_rev or n_rev,
+                                     dirnames)
         else:
             dirnodes = {}
 
@@ -786,7 +833,6 @@ class MercurialNode(Node):
             yield entry
 
     def get_annotations(self):
-        from mercurial.context import filectx
         annotations = []
         if self.filectx:
             for fc, line in self.filectx.annotate(follow=True):
@@ -807,6 +853,9 @@ class MercurialNode(Node):
     def get_content_type(self):
         if self.isdir:
             return None
+        if 'mq' in self.repos.params:
+            if self.path not in ('.hgignore', 'series'):
+                return 'text/x-diff'
         return ''
 
     def get_last_modified(self):
@@ -829,7 +878,7 @@ class MercurialChangeset(Changeset):
         if len(log_data) > 5: # extended changelog, since [hg 2f35961854fb]
             extra = log_data[5]
         time = repos.hg_time(timeinfo)
-        Changeset.__init__(self, repos.hg_display(n), to_unicode(desc),
+        Changeset.__init__(self, repos, repos.hg_display(n), to_unicode(desc),
                            to_unicode(user), time)
         self.repos = repos
         self.n = n
@@ -842,8 +891,9 @@ class MercurialChangeset(Changeset):
         self.branch = extra.pop("branch", None) 
         self.extra = extra
 
-    def get_uid(self):
-        return self.n
+    hg_properties = [
+        N_("Parents:"), N_("Children:"), N_("Branch:"), N_("Tags:")
+    ]
 
     def get_properties(self):
         properties = {}
@@ -888,7 +938,8 @@ class MercurialChangeset(Changeset):
             if f in deletions: # and since Mercurial > 0.7 [hg c6ffedc4f11b]
                 continue          # also 'deleted' files
             action = None
-            # TODO: find a way to detect conflicts and show how they were solved
+            # TODO: find a way to detect conflicts and show how they were 
+            #       solved (kind of 3-way diff - theirs/mine/merged)
             if manifest1 and f in manifest1:
                 action = Changeset.EDIT                
                 changes.append((f, Node.FILE, action, f, self.parents[0]))

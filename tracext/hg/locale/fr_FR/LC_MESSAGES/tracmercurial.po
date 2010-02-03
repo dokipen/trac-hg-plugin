@@ -1,0 +1,109 @@
+# French (France) translations for TracMercurial.
+# Copyright (C) 2008 ORGANIZATION
+# This file is distributed under the same license as the TracMercurial
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2008.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: TracMercurial 0.12.0.4\n"
+"Report-Msgid-Bugs-To: cboos@neuf.fr\n"
+"POT-Creation-Date: 2008-11-13 12:33+0100\n"
+"PO-Revision-Date: 2009-11-19 16:22+0100\n"
+"Last-Translator: Christian Boos <cboos@neuf.fr>\n"
+"Language-Team: fr_FR <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 0.9.4\n"
+
+#: tracext/hg/backend.py:99
+msgid ":"
+msgstr ""
+
+#: tracext/hg/backend.py:114
+msgid "Diff against this parent (show the changes merged from the other parents)"
+msgstr ""
+"Différences vis-à-vis de ce parent (montre les changements apportés par "
+"l'autre parent)"
+
+#: tracext/hg/backend.py:124
+#, python-format
+msgid ""
+"Note: this is a %(merge)s changeset, the changes displayed below "
+"correspond to the merge itself."
+msgstr ""
+"Note: ceci est un changeset de type %(merge)s, les modifications ci-"
+"dessous correspondent au merge lui-même."
+
+#: tracext/hg/backend.py:132
+#, python-format
+msgid ""
+"Use the %(diff)s links above to see all the changes relative to each "
+"parent."
+msgstr ""
+"Utilisez les liens %(diff)s ci-dessus pour voir les modifications "
+"relatives à chaque parent."
+
+#: tracext/hg/backend.py:155
+msgid "no such changeset"
+msgstr "pas de révisio"
+
+#: tracext/hg/backend.py:156
+msgid "Transplant:"
+msgstr ""
+
+#: tracext/hg/backend.py:173
+msgid "(binary, size greater than 100 bytes)"
+msgstr "(binaire, taille supérieure à 100 octets)"
+
+#: tracext/hg/backend.py:285
+#, python-format
+msgid "Repository '%(repo)s' not found"
+msgstr "Dépôt '%(repo)s' non trouvé"
+
+#: tracext/hg/backend.py:344
+#, python-format
+msgid "%(path)s does not appear to contain a Mercurial repository."
+msgstr "%(path)s ne semble pas contenir un dépôt Mercurial"
+
+#: tracext/hg/backend.py:566
+msgid "The Base for Diff is invalid"
+msgstr ""
+
+#: tracext/hg/backend.py:571
+msgid "The Target for Diff is invalid"
+msgstr ""
+
+#: tracext/hg/backend.py:575
+#, python-format
+msgid ""
+"Diff mismatch: Base is a %(okind)s (%(opath)s in revision %(orev)s) and "
+"Target is a %(nkind)s (%(npath)s in revision %(nrev)s)."
+msgstr ""
+"Différences incompatibles : Source est un %(okind)s (%(opath)s dans la "
+"révision %(orev)s) et Destination est un %(nkind)s (%(npath)s dans la "
+"révision %(nrev)s)."
+
+#: tracext/hg/backend.py:719
+#, python-format
+msgid "Can't read from directory %(path)s"
+msgstr "Lecture du répertoire %(path)s impossible"
+
+#: tracext/hg/backend.py:892
+msgid "Parents:"
+msgstr "Ascendants :"
+
+#: tracext/hg/backend.py:892
+msgid "Children:"
+msgstr "Descendants :"
+
+#: tracext/hg/backend.py:892
+msgid "Branch:"
+msgstr "Branche :"
+
+#: tracext/hg/backend.py:892
+msgid "Tags:"
+msgstr "Tags :"
+
