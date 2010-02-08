@@ -17,7 +17,7 @@ except ImportError:
 TracMercurial = 'http://trac.edgewall.org/wiki/TracMercurial'
 
 setup(name='TracMercurial',
-      install_requires='Trac >=0.12dev-r9125',
+      install_requires='Trac >=0.12dev',
       description='Mercurial plugin for Trac multirepos branch',
       keywords='trac scm plugin mercurial hg',
       version='0.12.0.21',
